@@ -1,0 +1,4 @@
+# Keep Cargo and Maven build trees separate; both would otherwise use ./target
+# and clobber each other's caches on `cargo clean` / `mvn clean`.
+[build]
+target-dir = "target-rust"
