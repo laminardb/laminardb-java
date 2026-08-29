@@ -23,7 +23,8 @@ core monorepo is needed — cargo resolves the tag from GitHub directly.
 - `src/runtime.rs`: the process-global Tokio runtime.
 - `src/arrow_jni.rs`: Arrow C Data Interface crossings (Spike A seed).
 - `src/main/java/io/laminardb`: public API. `src/main/java/io/laminardb/internal`:
-  native seam (package-private; never referenced by user code).
+  native seam (public classes inside the internal package — the package is the
+  boundary — referenced only by `io.laminardb`, never by user code).
 - `src/test/java`: JUnit suite (smoke tests + Arrow spike).
 - `justfile`: build orchestration; `pom.xml` stays build-tool pure (cargo is
   never invoked from Maven).
@@ -34,7 +35,8 @@ core monorepo is needed — cargo resolves the tag from GitHub directly.
 ## Build and verify
 
 - `just build` — `cargo build`, then stage the cdylib under `target-native/debug/`.
-- `just test` — build + `mvn -Djava.library.path=target-native/debug test`.
+- `just test` — build + `mvn test` (the pom's `laminardb.native.dir` property, defaulting
+  to `target-native/debug`, feeds surefire's `java.library.path` argLine).
 - `just verify` — correctness gate: fmt, clippy `-D warnings`, Rust unit tests,
   JUnit.
 - `just review` — review gate (plan 06 §2): fmt, clippy, `cargo machete`, the

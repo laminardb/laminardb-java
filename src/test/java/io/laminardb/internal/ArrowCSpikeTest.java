@@ -29,12 +29,12 @@ class ArrowCSpikeTest {
 
     @Test
     void rustToJavaExportRoundtrip() {
-        try (BufferAllocator allocator = new RootAllocator()) {
+        try (BufferAllocator allocator = new RootAllocator();
+                CDataDictionaryProvider provider = new CDataDictionaryProvider()) {
             try (ArrowArray array = ArrowArray.allocateNew(allocator);
                     ArrowSchema schema = ArrowSchema.allocateNew(allocator)) {
                 Spike.exportSampleBatch(array.memoryAddress(), schema.memoryAddress());
-                try (VectorSchemaRoot root =
-                        Data.importVectorSchemaRoot(allocator, array, schema, new CDataDictionaryProvider())) {
+                try (VectorSchemaRoot root = Data.importVectorSchemaRoot(allocator, array, schema, provider)) {
                     assertThat(root.getRowCount()).isEqualTo(ROWS);
                     BigIntVector ids = (BigIntVector) root.getVector("id");
                     VarCharVector names = (VarCharVector) root.getVector("name");
@@ -51,9 +51,10 @@ class ArrowCSpikeTest {
     void javaToRustImportIsVerifiedInRust() {
         try (BufferAllocator allocator = new RootAllocator();
                 VectorSchemaRoot root = sampleRoot(allocator);
+                CDataDictionaryProvider provider = new CDataDictionaryProvider();
                 ArrowArray array = ArrowArray.allocateNew(allocator);
                 ArrowSchema schema = ArrowSchema.allocateNew(allocator)) {
-            Data.exportVectorSchemaRoot(allocator, root, new CDataDictionaryProvider(), array, schema);
+            Data.exportVectorSchemaRoot(allocator, root, provider, array, schema);
             // Ownership of the exported structs moves to Rust on import; the
             // Java wrappers must not release them again.
             assertThat(Spike.importBatch(array.memoryAddress(), schema.memoryAddress()))
@@ -67,13 +68,13 @@ class ArrowCSpikeTest {
     void tenThousandRoundtripsKeepAllocatorAccountingStable() {
         // Bounded: 10_000 iterations; proves no leak and no double-free across
         // repeated crossings.
-        try (BufferAllocator allocator = new RootAllocator()) {
+        try (BufferAllocator allocator = new RootAllocator();
+                CDataDictionaryProvider provider = new CDataDictionaryProvider()) {
             for (int i = 0; i < 10_000; i++) {
                 try (ArrowArray array = ArrowArray.allocateNew(allocator);
                         ArrowSchema schema = ArrowSchema.allocateNew(allocator)) {
                     Spike.exportSampleBatch(array.memoryAddress(), schema.memoryAddress());
-                    try (VectorSchemaRoot imported =
-                            Data.importVectorSchemaRoot(allocator, array, schema, new CDataDictionaryProvider())) {
+                    try (VectorSchemaRoot imported = Data.importVectorSchemaRoot(allocator, array, schema, provider)) {
                         assertThat(imported.getRowCount()).isEqualTo(ROWS);
                     }
                 }

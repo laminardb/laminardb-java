@@ -6,6 +6,7 @@ package io.laminardb;
  */
 public class LaminarConnectionException extends LaminarException {
 
+    /** Constructs the exception with the core's verbatim message and numeric {@code ApiError} code. */
     public LaminarConnectionException(String message, int code) {
         super(message, code);
     }

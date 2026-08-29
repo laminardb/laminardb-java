@@ -14,7 +14,8 @@ public final class LaminarDB {
      * calling thread.
      *
      * @return an open connection, never {@code null}
-     * @throws LaminarConnectionException if the engine fails to start
+     * @throws LaminarException if the engine fails to start (code 900 at this
+     *         binding; the core maps engine-start failures to internal errors)
      */
     public static LaminarConnection open() {
         return new LaminarConnection(Native.openDefault());

@@ -1,6 +1,6 @@
 package io.laminardb.internal;
 
-/** The Phase 0 native surface. Never referenced outside this package. */
+/** The Phase 0 native surface. Referenced only by {@code io.laminardb}, never by user code. */
 public final class Native {
 
     static {

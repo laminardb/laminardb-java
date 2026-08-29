@@ -9,6 +9,7 @@ public class LaminarException extends RuntimeException {
 
     private final int code;
 
+    /** Constructs the exception with the core's verbatim message and numeric {@code ApiError} code. */
     public LaminarException(String message, int code) {
         super(message);
         this.code = code;

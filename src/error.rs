@@ -46,17 +46,19 @@ struct MappedExceptions {
     base: MappedException,
 }
 
-/// Cached lazily as global refs; a failed init is retried on the next throw.
-static MAPPED: OnceLock<Option<MappedExceptions>> = OnceLock::new();
+/// Cached lazily as global refs. A failed init leaves the `OnceLock` empty, so
+/// the next throw retries — a process-lifetime failure would silently swallow
+/// every future error. Racing initializers are harmless: the loser's global
+/// refs are deleted on this already-attached JNI thread.
+static MAPPED: OnceLock<MappedExceptions> = OnceLock::new();
 
 fn mapped(env: &mut Env<'_>) -> Option<&'static MappedExceptions> {
-    MAPPED
-        .get_or_init(|| {
-            let connection = map_class(env, jni_str!("io/laminardb/LaminarConnectionException"))?;
-            let base = map_class(env, jni_str!("io/laminardb/LaminarException"))?;
-            Some(MappedExceptions { connection, base })
-        })
-        .as_ref()
+    if let Some(cached) = MAPPED.get() {
+        return Some(cached);
+    }
+    let connection = map_class(env, jni_str!("io/laminardb/LaminarConnectionException"))?;
+    let base = map_class(env, jni_str!("io/laminardb/LaminarException"))?;
+    Some(MAPPED.get_or_init(|| MappedExceptions { connection, base }))
 }
 
 fn map_class(env: &mut Env<'_>, name: &JNIStr) -> Option<MappedException> {

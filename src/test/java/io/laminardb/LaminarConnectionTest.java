@@ -73,7 +73,7 @@ class LaminarConnectionTest {
     }
 
     @Test
-    void versionTracksThePinnedCore() {
+    void versionIsSemver() {
         assertThat(LaminarDB.getVersion()).matches("\\d+\\.\\d+\\.\\d+");
     }
 }
