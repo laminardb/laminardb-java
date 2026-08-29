@@ -1,31 +1,32 @@
 # laminardb-java — implementation plan series
 
-Status: **Draft plans, not yet implemented** · Date: 2026-08-29 · Owner: LaminarDB team
+Status: **Phase 0 implemented (2026-08-29); Phases 1–3 planned** · Owner: LaminarDB team
 
 Java bindings for the Rust [LaminarDB](https://github.com/laminardb/laminardb) streaming
-database. This directory is the repository root (a sibling of the `laminardb` main repo
-and `laminardb-claude-context` under `~/Source`); it currently contains only the
-implementation plan series.
+database. Phase 0 (repo scaffold, build wiring, CI) is implemented: a Rust JNI cdylib
+over the core's `api` feature (pinned to git tag `v0.30.0`), a minimal `io.laminardb`
+API, one-command build/test/verify/review via `just`, and a two-OS CI matrix.
 
-## Bootstrap procedure
+## Building and testing
 
-1. Create the empty GitHub repository `laminardb/laminardb-java`.
-2. From this directory: `git remote add origin git@github.com:laminardb/laminardb-java.git`
-   (git is already initialized on `main`), then commit and push the plan series.
-3. Execute the plans in order:
+Requires Rust stable (rustfmt + clippy), JDK 17+, Maven, `just`, and `cargo-machete`
+(`cargo install cargo-machete`). Then: `just verify` (correctness gate) and `just
+review` (review gate). See `AGENTS.md` for the full operating context.
 
-   | # | Plan | Phase | Depends on |
-   |---|---|---|---|
-   | 1 | [00-overview-and-decisions.md](docs/plans/00-overview-and-decisions.md) | read first | — |
-   | 2 | [01-phase0-scaffold-and-build.md](docs/plans/01-phase0-scaffold-and-build.md) | Phase 0 — scaffold, build wiring, CI | 00 |
-   | 3 | [02-phase1-embedded-mvp.md](docs/plans/02-phase1-embedded-mvp.md) | Phase 1 — embedded MVP, first Maven artifact | 01 |
-   | 4 | [03-phase2-subscriptions-and-hardening.md](docs/plans/03-phase2-subscriptions-and-hardening.md) | Phase 2 — subscriptions, async, hardening | 02 |
-   | 5 | [04-release-engineering.md](docs/plans/04-release-engineering.md) | Cross-phase — packaging, publishing, versioning | read before finishing 01 |
-   | 6 | [05-phase3-distributed-future.md](docs/plans/05-phase3-distributed-future.md) | Phase 3 — future: server driver, FFM backend | 02 |
-   | 7 | [06-review-gates.md](docs/plans/06-review-gates.md) | Cross-phase — review gates: structure, slop, docs, dead code, tests | every PR + every phase exit |
+## Plan index
 
-4. Keep plan status checkboxes updated as tasks complete; when a phase ships, mark its
-   plan header `Status: Implemented (<date>, <release>)` and leave it in place as a record.
+| # | Plan | Phase | Depends on |
+|---|---|---|---|
+| 1 | [00-overview-and-decisions.md](docs/plans/00-overview-and-decisions.md) | read first | — |
+| 2 | [01-phase0-scaffold-and-build.md](docs/plans/01-phase0-scaffold-and-build.md) | Phase 0 — scaffold, build wiring, CI | 00 |
+| 3 | [02-phase1-embedded-mvp.md](docs/plans/02-phase1-embedded-mvp.md) | Phase 1 — embedded MVP, first Maven artifact | 01 |
+| 4 | [03-phase2-subscriptions-and-hardening.md](docs/plans/03-phase2-subscriptions-and-hardening.md) | Phase 2 — subscriptions, async, hardening | 02 |
+| 5 | [04-release-engineering.md](docs/plans/04-release-engineering.md) | Cross-phase — packaging, publishing, versioning | read before finishing 01 |
+| 6 | [05-phase3-distributed-future.md](docs/plans/05-phase3-distributed-future.md) | Phase 3 — future: server driver, FFM backend | 02 |
+| 7 | [06-review-gates.md](docs/plans/06-review-gates.md) | Cross-phase — review gates: structure, slop, docs, dead code, tests | every PR + every phase exit |
+
+Keep plan status checkboxes updated as tasks complete; when a phase ships, mark its
+plan header `Status: Implemented (<date>, <release>)` and leave it in place as a record.
 
 ## Reference material
 

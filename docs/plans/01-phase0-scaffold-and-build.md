@@ -1,6 +1,6 @@
 # Plan 01 — Phase 0: repo scaffold, build wiring, CI
 
-Status: **In progress** · Prerequisite: plan 00 (decisions D1–D8)
+Status: **Implemented (2026-08-29)** · Prerequisite: plan 00 (decisions D1–D8)
 Exit: `just verify` builds the cdylib + Java jar and runs the JUnit smoke test green in
 CI on Linux x86_64 and macOS aarch64.
 
@@ -241,16 +241,18 @@ pub(crate) fn runtime() -> Result<&'static Runtime, ApiError> { ... }
 
 ## Acceptance checklist (Phase 0 exit)
 
-- [ ] `just verify` green locally on Linux or macOS dev machine.
-- [ ] CI green on both matrix OSes from a clean checkout (proves the pinned git-tag
+- [x] `just verify` green locally on Linux or macOS dev machine. (macOS aarch64.)
+- [x] CI green on both matrix OSes from a clean checkout (proves the pinned git-tag
       core dep resolves without manual sibling clones — the Python repo's ergonomic
-      mistake, avoided).
-- [ ] Review gates from plan 06 §2 wired for Phase-0 scope (`just review` green);
+      mistake, avoided). (Run 33250001085 at commit 44d6fdf: all six jobs green.)
+- [x] Review gates from plan 06 §2 wired for Phase-0 scope (`just review` green);
       `agents/code-review.md` committed and referenced from `AGENTS.md`.
-- [ ] Phase-exit review pass per plan 06 §8 recorded in `docs/reviews/phase0-<date>.md`
-      with zero open REQUEST CHANGES findings.
-- [ ] Spike A documented (§ below) with working arrow-java API names.
-- [ ] `AGENTS.md` merged; plan checkboxes updated; conventional commit history.
+- [x] Phase-exit review pass per plan 06 §8 recorded in
+      `docs/reviews/phase0-2026-08-29.md` with zero open REQUEST CHANGES findings.
+      (First pass returned 5 findings — all resolved in commit 89dd091 and recorded
+      there.)
+- [x] Spike A documented (§ below) with working arrow-java API names.
+- [x] `AGENTS.md` merged; plan checkboxes updated; conventional commit history.
 
 ## Spike results (recorded 2026-08-29, core v0.30.0 / arrow-rs =58.4.0 / arrow-java 19.0.0 / jni 0.22.4)
 
