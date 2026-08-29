@@ -12,6 +12,8 @@ name = "laminar_java" # liblaminar_java.so / liblaminar_java.dylib / laminar_jav
 [dependencies]
 jni = "0.22"
 laminar-db = { git = "https://github.com/laminardb/laminardb", tag = "v0.30.0", default-features = false, features = ["api"] }
+# Same tag as laminar-db: names StreamCheckpointConfig for the config builder.
+laminar-core = { git = "https://github.com/laminardb/laminardb", tag = "v0.30.0" }
 arrow = { version = "=58.4.0", default-features = false, features = ["ffi"] } # match the core's workspace pin exactly
 tokio = { version = "1", features = ["rt-multi-thread", "time"] }
 parking_lot = "0.12"

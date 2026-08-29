@@ -1,17 +1,36 @@
 # laminardb-java — implementation plan series
 
-Status: **Phase 0 implemented (2026-08-29); Phases 1–3 planned** · Owner: LaminarDB team
+Status: **Phase 1 implemented (2026-08-29); Phases 2–3 planned** · Owner: LaminarDB team
 
 Java bindings for the Rust [LaminarDB](https://github.com/laminardb/laminardb) streaming
 database. Phase 0 (repo scaffold, build wiring, CI) is implemented: a Rust JNI cdylib
 over the core's `api` feature (pinned to git tag `v0.30.0`), a minimal `io.laminardb`
 API, one-command build/test/verify/review via `just`, and a two-OS CI matrix.
 
+## Quickstart
+
+```java
+try (LaminarConnection conn = LaminarDB.open()) {
+    conn.execute("CREATE TABLE sensors (id BIGINT PRIMARY KEY, reading DOUBLE)");
+    conn.execute("INSERT INTO sensors VALUES (1, 20.5), (2, 21.0)");
+    try (QueryResult result = conn.query("SELECT * FROM sensors")) {
+        result.toMaps(); // [{id=1, reading=20.5}, {id=2, reading=21.0}]
+    }
+}
+```
+
+Streaming sources, writers with event-time watermarks, and the stateful-join
+walkthrough: [docs/stateful-and-joins.md](docs/stateful-and-joins.md). Errors:
+[docs/errors.md](docs/errors.md). Threading: [docs/threading.md](docs/threading.md).
+
+JDK 17+ requires `--add-opens java.base/java.nio=ALL-UNNAMED` (arrow-java).
+
 ## Building and testing
 
 Requires Rust stable (rustfmt + clippy), JDK 17+, Maven, `just`, and `cargo-machete`
 (`cargo install cargo-machete`). Then: `just verify` (correctness gate) and `just
-review` (review gate). See `AGENTS.md` for the full operating context.
+review` (review gate). See [docs/build.md](docs/build.md) and `AGENTS.md` for the
+full operating context.
 
 ## Plan index
 

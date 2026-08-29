@@ -6,7 +6,7 @@
 
   <groupId>io.laminardb</groupId>
   <artifactId>laminardb</artifactId>
-  <version>0.30.0-SNAPSHOT</version>
+  <version>0.30.0-alpha</version>
   <packaging>jar</packaging>
 
   <name>laminardb-java</name>
@@ -33,6 +33,12 @@
       <artifactId>arrow-vector</artifactId>
       <version>${arrow.version}</version>
     </dependency>
+    <!-- Allocation-manager backend; netty needs no add-opens flag on JDK 17+. -->
+    <dependency>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-memory-netty</artifactId>
+      <version>${arrow.version}</version>
+    </dependency>
 
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -46,16 +52,15 @@
       <version>${assertj.version}</version>
       <scope>test</scope>
     </dependency>
-    <!-- Allocation-manager backend required to allocate Arrow buffers in tests. -->
-    <dependency>
-      <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-memory-unsafe</artifactId>
-      <version>${arrow.version}</version>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -64,8 +69,9 @@
         <configuration>
           <!-- java.library.path must be a JVM argument: the fork reads it at
                startup, not from system properties set after the fact. The
-               add-opens lets arrow-memory-unsafe reach DirectByteBuffer. -->
-          <argLine>-Djava.library.path=${laminardb.native.dir} --add-opens java.base/java.nio=ALL-UNNAMED</argLine>
+               add-opens is arrow-java's JDK 17+ requirement (see docs/build.md).
+               @{argLine} late-binds the JaCoCo agent without clobbering it. -->
+          <argLine>@{argLine} -Djava.library.path=${laminardb.native.dir} --add-opens java.base/java.nio=ALL-UNNAMED</argLine>
         </configuration>
       </plugin>
       <plugin>
@@ -91,6 +97,152 @@
           <failOnViolation>true</failOnViolation>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>4.9.4.1</version>
+        <configuration>
+          <effort>Max</effort>
+          <threshold>Medium</threshold>
+          <xmlOutput>true</xmlOutput>
+          <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
+        </configuration>
+        <executions>
+          <execution>
+            <id>spotbugs-check</id>
+            <goals><goal>check</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.13</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals><goal>prepare-agent</goal></goals>
+          </execution>
+          <execution>
+            <id>coverage-check</id>
+            <goals><goal>check</goal></goals>
+            <configuration>
+              <!-- Plan 06 §6: a production class nothing exercises fails the
+                   build. Percentages are informational, never quotas. -->
+              <rules>
+                <rule>
+                  <element>CLASS</element>
+                  <excludes>
+                    <!-- io.laminardb.internal.Native: JNI declarations; the
+                         zero-coverage rule cannot see native bodies. Its Java
+                         callers are covered. -->
+                    <exclude>io.laminardb.internal.Native</exclude>
+                    <!-- io.laminardb.LaminarSubscriptionException: declared in
+                         Phase 1 per plan 02 §5, exercised by Phase 2's
+                         subscription tests (plan 03 §1); constructor-only. -->
+                    <exclude>io.laminardb.LaminarSubscriptionException</exclude>
+                  </excludes>
+                  <limits>
+                    <!-- epsilon minimum: a class with zero covered
+                         instructions fails; any coverage passes. -->
+                    <limit>
+                      <counter>INSTRUCTION</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.0000001</minimum>
+                    </limit>
+                  </limits>
+                </rule>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>bundle-natives</id>
+      <activation>
+        <property>
+          <name>natives.dir</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-resources-plugin</artifactId>
+            <version>3.3.1</version>
+            <executions>
+              <execution>
+                <id>copy-natives</id>
+                <phase>prepare-package</phase>
+                <goals><goal>copy-resources</goal></goals>
+                <configuration>
+                  <outputDirectory>${project.build.outputDirectory}/natives</outputDirectory>
+                  <resources>
+                    <resource>
+                      <directory>${natives.dir}</directory>
+                    </resource>
+                  </resources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>central</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.sonatype.central</groupId>
+            <artifactId>central-publishing-maven-plugin</artifactId>
+            <version>0.8.0</version>
+            <extensions>true</extensions>
+            <configuration>
+              <publishingServerId>central</publishingServerId>
+              <autoPublish>true</autoPublish>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>3.3.1</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals><goal>jar-no-fork</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>3.11.2</version>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals><goal>jar</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.2.7</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals><goal>sign</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

@@ -1,7 +1,6 @@
 # Plan 04 — Release engineering: packaging, cross-compilation, publishing
 
-Status: **Not started** · Read before exiting Phase 1 (its artifact layout constrains
-Phase 0/1 build structure). Owns everything between "tests green" and "a user in a bare
+Status: **Wired (2026-08-29); first actual release blocked on maintainer credentials** · Read before exiting Phase 1 (its artifact layout constrains Phase 0/1 build structure). Owns everything between "tests green" and "a user in a bare
 Maven project succeeds".
 
 ## 1 — Artifact layout
@@ -90,6 +89,16 @@ Trigger: tag `v*`. Jobs, in order:
 5. **verify-publish**: poll Central for the artifact's resolvability (the Python repo's
    failed-PyPI-publish failure mode, structurally caught); comment the release tag with
    the verified coordinates.
+
+   Wired status: release.yml implements jobs 1–6 (assemble-and-test runs the
+   suite against the packaged jar and the bare-project quickstart via
+   `scripts/bare-quickstart.sh`; the pom's `central` profile carries
+   central-publishing/source/javadoc/gpg plugins). **Blocker (one-time,
+   maintainer-only):** Central Portal namespace ownership for `io.laminardb`,
+   GPG key upload, and the `maven-central` GitHub environment (secrets
+   `CENTRAL_TOKEN`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`, with required
+   reviewers). The publish job fails with a recorded error until these
+   exist — deliberately, so no release ships unverified.
 6. **github-release**: notes from CHANGELOG section, jar + checksums attached.
 
 Smoke-on-clean-env: step 3's bare-project test must run `mvn test` offline-of-this-repo

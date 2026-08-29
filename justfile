@@ -21,13 +21,13 @@ verify:
     cargo test
     just test
 
-# Review gate (plan 06 §2) for Phase-0 scope.
+# Review gate (plan 06 §2): Phase-0 tooling + SpotBugs + JaCoCo zero-coverage.
 review:
     cargo fmt --check
     cargo clippy --all-targets -- -D warnings
     cargo machete
     just allows-grep
-    mvn spotless:check checkstyle:check
+    mvn spotless:check checkstyle:check verify
 
 # Every `#[allow(...)]` in src/ must carry an inline `WHY:` justification.
 allows-grep:
