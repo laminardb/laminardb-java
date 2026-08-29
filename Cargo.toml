@@ -1,0 +1,22 @@
+[package]
+name = "laminar-java"
+version = "0.30.0" # tracks the pinned core tag; see plan 04 §3 before first release
+edition = "2021" # matches the core workspace edition at the pin
+rust-version = "1.95" # core workspace floor at the pin
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+name = "laminar_java" # liblaminar_java.so / liblaminar_java.dylib / laminar_java.dll
+
+[dependencies]
+jni = "0.22"
+laminar-db = { git = "https://github.com/laminardb/laminardb", tag = "v0.30.0", default-features = false, features = ["api"] }
+arrow = { version = "=58.4.0", default-features = false, features = ["ffi"] } # match the core's workspace pin exactly
+tokio = { version = "1", features = ["rt-multi-thread", "time"] }
+parking_lot = "0.12"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "symbols"
