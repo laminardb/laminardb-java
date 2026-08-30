@@ -35,9 +35,14 @@ allows-grep:
     @! grep -rn '#\[allow(' src/ | grep -v 'WHY:'
 
 # JMH suite (plan 03 §5); append results to docs/benchmarks.md manually.
+# The benchmarks module is standalone: install the library to the local repo
+# first so it resolves without a reactor.
 bench: build
-    cd benchmarks && mvn -q package && java -Djava.library.path=../target-native/debug \
-        -jar target/benchmarks.jar -f 1 -wi 2 -i 3 || true
+    mvn -q -DskipTests -Djacoco.skip=true -Dspotbugs.skip=true -Dcheckstyle.skip=true -Dspotless.check.skip=true install
+    cd benchmarks && mvn -q package
+    cd benchmarks && java -Djava.library.path=../target-native/debug \
+        --add-opens java.base/java.nio=ALL-UNNAMED \
+        -jar target/benchmarks.jar -f 1 -wi 2 -i 3
 
 clean:
     cargo clean

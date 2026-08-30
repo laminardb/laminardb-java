@@ -81,6 +81,23 @@ public final class LaminarDB {
         return DEFAULT_ALLOCATOR;
     }
 
+    private static final java.util.concurrent.ExecutorService ASYNC_EXECUTOR =
+            java.util.concurrent.Executors.newFixedThreadPool(4, runnable -> {
+                Thread thread = new Thread(runnable, "laminardb-async");
+                thread.setDaemon(true);
+                return thread;
+            });
+
+    /**
+     * Returns the shared executor for async adapters: a small fixed pool of
+     * daemon threads that exists precisely because the operations are
+     * blocking — deliberately not the common ForkJoin pool, so virtual-thread
+     * users never get carriers pinned by surprise (plan 03 §3).
+     */
+    public static java.util.concurrent.ExecutorService asyncExecutor() {
+        return ASYNC_EXECUTOR;
+    }
+
     /**
      * Closes the process-wide allocator; allocator-backed objects become
      * unusable. Intended for hosting apps at shutdown; not exercised by the

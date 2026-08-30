@@ -71,6 +71,61 @@ public final class QueryStream implements AutoCloseable {
         }
     }
 
+    /**
+     * Returns a bounded-lazy stream over the batches: at most {@code
+     * prefetch} batches (default 4) are held ahead of consumption, so a
+     * caller that never terminal-operations the stream cannot exhaust native
+     * memory. The caller closes each consumed batch; closing the returned
+     * stream closes this {@code QueryStream} (plan 03 §3).
+     */
+    public java.util.stream.Stream<ArrowBatch> streamBatches() {
+        return streamBatches(4);
+    }
+
+    /** Bounded-lazy stream with an explicit prefetch depth (minimum 1). */
+    public java.util.stream.Stream<ArrowBatch> streamBatches(int prefetch) {
+        int depth = Math.max(1, prefetch);
+        java.util.Iterator<ArrowBatch> iterator = new java.util.Iterator<>() {
+            private final java.util.ArrayDeque<ArrowBatch> buffer = new java.util.ArrayDeque<>();
+
+            private boolean exhausted;
+
+            @Override
+            public boolean hasNext() {
+                if (buffer.isEmpty() && !exhausted) {
+                    fill();
+                }
+                return !buffer.isEmpty();
+            }
+
+            @Override
+            public ArrowBatch next() {
+                if (!hasNext()) {
+                    throw new java.util.NoSuchElementException();
+                }
+                return buffer.removeFirst();
+            }
+
+            private void fill() {
+                // Bounded lookahead on the calling thread (no background
+                // worker): the memory bound is what matters (plan 03 §3).
+                for (int i = 0; i < depth; i++) {
+                    ArrowBatch batch = QueryStream.this.next();
+                    if (batch == null) {
+                        exhausted = true;
+                        return;
+                    }
+                    buffer.addLast(batch);
+                }
+            }
+        };
+        return java.util.stream.StreamSupport.stream(
+                        java.util.Spliterators.spliteratorUnknownSize(
+                                iterator, java.util.Spliterator.ORDERED | java.util.Spliterator.NONNULL),
+                        false)
+                .onClose(this::close);
+    }
+
     /** Returns whether the stream is still active. */
     public boolean isActive() {
         synchronized (lock) {

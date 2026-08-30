@@ -1,6 +1,7 @@
 //! JNI bindings over `laminar_db::api` for the laminardb-java Maven artifact.
 
 mod arrow_jni;
+mod callback;
 mod catalog;
 mod config;
 mod connection;
@@ -8,6 +9,7 @@ mod error;
 mod handle;
 mod query;
 mod runtime;
+mod subscription;
 mod writer;
 
 use std::ffi::c_void;

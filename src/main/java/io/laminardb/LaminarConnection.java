@@ -59,6 +59,15 @@ public final class LaminarConnection implements AutoCloseable {
     }
 
     /**
+     * Async variant of {@link #query}: materializes on the shared async
+     * executor (blocking-safe daemon pool), never the common ForkJoin pool.
+     */
+    public java.util.concurrent.CompletableFuture<QueryResult> queryAsync(String sql) {
+        Objects.requireNonNull(sql, "sql");
+        return java.util.concurrent.CompletableFuture.supplyAsync(() -> query(sql), LaminarDB.asyncExecutor());
+    }
+
+    /**
      * Runs a query and streams its batches as they are produced.
      *
      * <p>Blocking per batch. The caller closes the returned stream.
@@ -172,6 +181,42 @@ public final class LaminarConnection implements AutoCloseable {
 
     private org.apache.arrow.vector.types.pojo.Schema arrowSchema(long h, String name) {
         return ArrowBatch.importSchema(allocator, addr -> Native.connSchemaExport(h, name, addr));
+    }
+
+    /**
+     * Subscribes to a named stream, surfacing data batches and checkpoint
+     * barriers (plan 03 §2). Blocking.
+     *
+     * @param streamName the derived stream to subscribe to
+     * @return a framed subscription; the caller closes it
+     */
+    public StreamSubscription subscribe(String streamName) {
+        Objects.requireNonNull(streamName, "streamName");
+        return new StreamSubscription(withConnection(h -> Native.subscribe(h, streamName)), allocator);
+    }
+
+    /**
+     * Subscribes to a SQL query with push delivery: batches arrive on a
+     * dedicated worker thread via the listener (plan 03 §4). Blocking start.
+     *
+     * @return the callback subscription; the caller closes it
+     */
+    public CallbackSubscription subscribe(String sql, SubscriptionListener listener) {
+        Objects.requireNonNull(sql, "sql");
+        Objects.requireNonNull(listener, "listener");
+        return withConnection(h -> CallbackSubscription.overQuery(h, sql, listener));
+    }
+
+    /**
+     * Subscribes to a named stream with push delivery (barriers are skipped;
+     * use {@link #subscribe(String)} for framed access). Blocking start.
+     *
+     * @return the callback subscription; the caller closes it
+     */
+    public CallbackSubscription subscribeStream(String streamName, SubscriptionListener listener) {
+        Objects.requireNonNull(streamName, "streamName");
+        Objects.requireNonNull(listener, "listener");
+        return withConnection(h -> CallbackSubscription.overStream(h, streamName, listener));
     }
 
     /** Lists source names. Blocking. */

@@ -2,3 +2,7 @@
 # and clobber each other's caches on `cargo clean` / `mvn clean`.
 [build]
 target-dir = "target-rust"
+
+[target.x86_64-pc-windows-msvc]
+# The Python repo's fix carried over (plan 03 §6): toolchain-bundled linker.
+linker = "rust-lld"

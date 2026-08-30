@@ -121,10 +121,14 @@ pub extern "system" fn Java_io_laminardb_internal_Native_writerWatermark<'caller
     let outcome = unowned_env.with_env(|_| {
         let runtime = runtime()?;
         let _guard = runtime.enter();
+        // The public API documents epoch millis; the pin's SQL TIMESTAMP
+        // columns are Arrow Timestamp(us), the unit the core's watermark
+        // expects — convert here so Java callers never see it.
+        let watermark_micros = timestamp.saturating_mul(1_000);
         typed::<laminar_db::api::Writer>(writer_ptr as *mut c_void, "writer")?.with_mut(|writer| {
             match writer {
                 Some(w) => {
-                    w.watermark(timestamp);
+                    w.watermark(watermark_micros);
                     Ok::<_, Failure>(())
                 }
                 None => Err(Failure::Api(writer_closed())),
@@ -141,8 +145,15 @@ pub extern "system" fn Java_io_laminardb_internal_Native_writerCurrentWatermark<
     writer_ptr: jlong,
 ) -> jlong {
     let outcome = unowned_env.with_env(|_| {
+        // The core stores the watermark in the column unit (µs at this pin);
+        // the public API speaks millis in both directions.
         let watermark = typed::<laminar_db::api::Writer>(writer_ptr as *mut c_void, "writer")?
-            .with(|inner| inner.map(|w| w.current_watermark()).unwrap_or(i64::MIN));
+            .with(|inner| {
+                inner
+                    .map(|w| w.current_watermark())
+                    .unwrap_or(i64::MIN)
+                    .saturating_div(1_000)
+            });
         Ok::<_, Failure>(watermark)
     });
     outcome.resolve::<ThrowLaminar>()

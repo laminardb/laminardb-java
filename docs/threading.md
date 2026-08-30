@@ -6,8 +6,10 @@
 |---|---|
 | `LaminarDB` | Stateless entry points; the shared allocator is thread-safe. |
 | `LaminarConnection` | Thread-safe. One internal lock guards the native handle's lifetime and serializes core calls — the same contract as the Python binding. |
-| `Writer`, `QueryStream`, `ArrowBatch`, `ExecuteResult`, `QueryResult`, `LaminarConfig` | Single-owner. Calls from multiple threads must be externally serialized. |
-| Exceptions, `Schema`, `FieldInfo` | Immutable. |
+| `Writer`, `QueryStream`, `ArrowBatch`, `ExecuteResult`, `QueryResult`, `LaminarConfig`, `StreamSubscription` | Single-owner. Calls from multiple threads must be externally serialized. |
+| `CallbackSubscription` | Single-owner; deliveries run on its dedicated worker thread. Query-backed workers emit no exhaustion signal at this pin — `cancel()` ends them. |
+| `SubscriptionListener` | Invoked on the subscription's worker thread; throwing from `onBatch` ends the subscription with one `onError` then `onClose`. |
+| Exceptions, `Schema`, `FieldInfo`, `Frame` | Immutable. |
 
 ## Blocking
 
@@ -24,6 +26,20 @@ The native library keeps one process-wide Tokio runtime, created on first
 on that runtime's worker threads. `close()`/`shutdown()` stop the engine for
 that connection; the runtime itself is process-global by design (mirrors the
 Python binding).
+
+## Subscription delivery guarantees (core v0.30.0)
+
+Named-stream subscriptions are broadcast-based: a consumer that falls behind
+receives a **subscription error** ("subscription fell behind by N entries",
+code 500) — the subscription then terminates; `nextFrame()` throws
+`LaminarSubscriptionException` and callback listeners receive `onError`
+followed by `onClose`. Write in batches — one JNI crossing per batch (D7) —
+and keep consumers draining: a callback listener that stalls its worker
+thread loses batches and then ends its subscription with an error.
+
+At most **64 concurrent callback subscriptions** exist per process
+(`LaminarSubscriptionException` code 500 beyond); each runs on a dedicated
+worker thread with adaptive poll backoff (0.5–5 ms).
 
 ## Closing with resources still open
 

@@ -1,5 +1,17 @@
 # Benchmarks
 
+## Phase 2 additions (2026-08-30, debug build, macOS aarch64)
+
+- Spike B (callback delivery, rapid single-row writes): ~544 µs/row
+  write-side; broadcast lag-drop observed under consumer-slower-than-producer
+  stress (machine-dependent; e.g. 468/500 and 181/500 on two runs) — batched
+  production is the contract, the ratio is recorded, never gated.')
+
+- The JMH module (`benchmarks/`, `just bench`) carries the plan 03 §5 suite:
+  insert throughput, query roundtrip, poll- and callback-subscription
+  overhead, map conversion, open/close cycles. Nightly CI runs it; numbers
+  land here per environment.
+
 Phase 1 records manual, non-CI-blocking sanity numbers on the dev machine
 (macOS aarch64, JDK 17.0.20, Rust 1.97.1 debug-build cdylib — release natives
 ship with the Phase 1 artifact). The JMH suite lands in Phase 2 (plan 03 §5).

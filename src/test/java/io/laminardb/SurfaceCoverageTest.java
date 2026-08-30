@@ -145,6 +145,124 @@ class SurfaceCoverageTest {
     }
 
     @Test
+    void streamBatchesIsBoundedAndDrains() {
+        try (LaminarConnection conn = LaminarDB.open();
+                QueryStream stream = conn.stream("SELECT * FROM (VALUES (1), (2), (3)) AS t(a)")) {
+            int[] seen = {0};
+            stream.<ArrowBatch>streamBatches(2).forEach(batch -> {
+                seen[0] += batch.getRowCount();
+                batch.close();
+            });
+            assertThat(seen[0]).isEqualTo(3);
+        }
+    }
+
+    @Test
+    void barrierFrameCarriesItsMetadata() {
+        Frame.Barrier barrier = new Frame.Barrier(11, 4, 9, 10);
+        assertThat(barrier.sequence()).isEqualTo(11);
+        assertThat(barrier.epoch()).isEqualTo(4);
+        assertThat(barrier.checkpointId()).isEqualTo(9);
+        assertThat(barrier.throughSequence()).isEqualTo(10);
+    }
+
+    @Test
+    void queryAsyncMaterializesOnTheAsyncExecutor() throws Exception {
+        try (LaminarConnection conn = LaminarDB.open()) {
+            try (QueryResult result = conn.queryAsync("SELECT * FROM (VALUES (5), (6)) AS t(a)")
+                    .get(10, java.util.concurrent.TimeUnit.SECONDS)) {
+                assertThat(result.numRows()).isEqualTo(2);
+            }
+        }
+        assertThat(LaminarDB.asyncExecutor().isShutdown()).isFalse();
+    }
+
+    @Test
+    void streamBatchesDefaultDepthDrains() {
+        try (LaminarConnection conn = LaminarDB.open();
+                QueryStream stream = conn.stream("SELECT * FROM (VALUES (8)) AS t(a)")) {
+            int[] seen = {0};
+            try (java.util.stream.Stream<ArrowBatch> batches = stream.streamBatches()) {
+                batches.forEach(batch -> {
+                    seen[0] += batch.getRowCount();
+                    batch.close();
+                });
+            }
+            assertThat(seen[0]).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void namedStreamBatchConveniencesDeliverData() throws Exception {
+        try (LaminarConnection conn = LaminarDB.open()) {
+            conn.execute("CREATE SOURCE s (a BIGINT)");
+            conn.execute("CREATE STREAM out AS SELECT a FROM s");
+            conn.start();
+            try (Writer writer = conn.writer("s");
+                    StreamSubscription sub = conn.subscribe("out")) {
+                writer.write(List.of(Map.of("a", 5L)));
+                writer.close();
+                long deadline = System.nanoTime() + 30_000_000_000L;
+                ArrowBatch batch = null;
+                while (System.nanoTime() < deadline) {
+                    batch = sub.nextBatch(java.time.Duration.ofSeconds(1));
+                    if (batch != null) {
+                        break;
+                    }
+                }
+                assertThat(batch).isNotNull();
+                assertThat(batch.getRowCount()).isPositive();
+                batch.close();
+                assertThat(sub.tryNextBatch()).isNull();
+            }
+        }
+    }
+
+    @Test
+    void callbackSubscriptionIsActiveFlipsOnCancel() throws Exception {
+        try (LaminarConnection conn = LaminarDB.open()) {
+            try (CallbackSubscription sub = conn.subscribe("SELECT * FROM (VALUES (1)) AS t(a)", noOpListener())) {
+                assertThat(sub.isActive()).isTrue();
+                sub.cancel();
+                assertThat(sub.awaitStopped(java.time.Duration.ofSeconds(5))).isTrue();
+                assertThat(sub.isActive()).isFalse();
+            }
+        }
+    }
+
+    @Test
+    void closedStreamSubscriptionThrowsSubscriptionClosed() {
+        try (LaminarConnection conn = LaminarDB.open()) {
+            conn.execute("CREATE SOURCE s (a BIGINT)");
+            conn.execute("CREATE STREAM out AS SELECT a FROM s");
+            conn.start();
+            StreamSubscription sub = conn.subscribe("out");
+            sub.close();
+            sub.close();
+            org.assertj.core.api.Assertions.assertThatThrownBy(sub::nextFrame)
+                    .isInstanceOf(LaminarSubscriptionException.class)
+                    .satisfies(e -> org.assertj.core.api.Assertions.assertThat(((LaminarException) e).getCode())
+                            .isEqualTo(501));
+        }
+    }
+
+    static SubscriptionListener noOpListener() {
+        return new SubscriptionListener() {
+            public void onBatch(ArrowBatch batch) {
+                batch.close();
+            }
+
+            public void onError(LaminarException error) {
+                // coverage helper
+            }
+
+            public void onClose() {
+                // coverage helper
+            }
+        };
+    }
+
+    @Test
     void mapInsertRejectsUnknownKeys() {
         try (LaminarConnection conn = LaminarDB.open()) {
             conn.execute("CREATE SOURCE exact (a BIGINT)");

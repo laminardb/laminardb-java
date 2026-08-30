@@ -65,8 +65,10 @@ them: the right source must declare its equality key as a **PRIMARY KEY**, and
 temporal joins require the `temporal_join_idle_history_retention` config. In
 the current Phase-1 feature set (core `api` only, no connectors) temporal
 joins additionally require **connector-backed sources** — plain embedded
-sources are refused ("must be a direct configured source"). This path unlocks
-with the connector-matrix decision in Phase 2 (plan 03 §6).
+sources are refused ("must be a direct configured source"). This path needs
+connector-backed sources; the Phase 2 connector-matrix decision (plan 03 §7)
+kept the default artifact `api`-only, so it remains unavailable in the
+default artifact.
 
 ## TUMBLE windows
 
@@ -92,7 +94,23 @@ GROUP BY symbol, tumble(ts, INTERVAL '10' SECOND);
 
 ## Reading stream output
 
-Stream data is consumed via **subscriptions**, which land in Phase 2 (plan
-03). Until then, `query()` reads TABLEs and bounded/inline SQL; the
-`QuickstartIT` test exercises everything on this page that Phase 1 can
-observe end-to-end.
+Stream data is consumed via **subscriptions** (Phase 2): the framed poll API
+`conn.subscribe(streamName)` returning `StreamSubscription` (data frames +
+checkpoint barriers), the batch conveniences `nextBatch`/`tryNextBatch`, and
+push delivery via `conn.subscribeStream(name, listener)`. Note the pin-time
+emission observation below — passthrough streams emit immediately;
+watermarked and join outputs did not emit under the embedded writer-driven
+surface at v0.30.0.
+
+## A pin-time observation about watermarked/join emission (v0.30.0)
+
+All the DDL on this page plans and starts cleanly under the embedded
+writer-driven surface, but **observing output rows from watermarked streams
+and interval joins** through an embedded subscription was not achievable at
+this pin — the core's own integration tests for these shapes assert planning
+behavior, not data flow, and writer-driven watermarks (in the core's
+microsecond column unit) plus kick rows did not surface output.
+Unwatermarked passthrough streams do emit (see `SubscriptionTest`). Treat
+windowed emission as unproven on this surface; the connector-matrix decision
+(plan 03 §7) keeps the default artifact `api`-only, so the temporal-join
+connector requirement above remains unmet by the default artifact.

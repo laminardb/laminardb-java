@@ -70,8 +70,10 @@
           <!-- java.library.path must be a JVM argument: the fork reads it at
                startup, not from system properties set after the fact. The
                add-opens is arrow-java's JDK 17+ requirement (see docs/build.md).
-               @{argLine} late-binds the JaCoCo agent without clobbering it. -->
+               @{argLine} late-binds the JaCoCo agent without clobbering it.
+               Soak tests run nightly only (plan 03 §6). -->
           <argLine>@{argLine} -Djava.library.path=${laminardb.native.dir} --add-opens java.base/java.nio=ALL-UNNAMED</argLine>
+          <excludedGroups>io.laminardb.Soak</excludedGroups>
         </configuration>
       </plugin>
       <plugin>
@@ -137,10 +139,6 @@
                          zero-coverage rule cannot see native bodies. Its Java
                          callers are covered. -->
                     <exclude>io.laminardb.internal.Native</exclude>
-                    <!-- io.laminardb.LaminarSubscriptionException: declared in
-                         Phase 1 per plan 02 §5, exercised by Phase 2's
-                         subscription tests (plan 03 §1); constructor-only. -->
-                    <exclude>io.laminardb.LaminarSubscriptionException</exclude>
                   </excludes>
                   <limits>
                     <!-- epsilon minimum: a class with zero covered

@@ -38,6 +38,11 @@ public final class ArrowBatch implements AutoCloseable {
         this.schema = schema;
     }
 
+    /** Factory for natively-delivered batches (callback bridge, plan 03 §4). */
+    public static ArrowBatch delivered(BufferAllocator allocator, ArrowArray array, ArrowSchema schema) {
+        return new ArrowBatch(allocator, array, schema);
+    }
+
     /** Returns the batch as a {@link VectorSchemaRoot}, importing it on first access. */
     public VectorSchemaRoot root() {
         if (root == null) {

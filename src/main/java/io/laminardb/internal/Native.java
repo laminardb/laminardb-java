@@ -153,6 +153,61 @@ public final class Native {
     /** Leak-backstop free for unclosed writers; never a substitute for {@link #writerClose}. */
     public static native void writerFree(long writer);
 
+    // ---- named-stream subscriptions (plan 03 §1-§2) ----
+
+    /** Subscribes to a named stream; returns the subscription handle. */
+    public static native long subscribe(long conn, String streamName);
+
+    /** Writes the subscription schema's FFI struct at {@code schemaAddr}. */
+    public static native void subSchemaExport(long sub, long schemaAddr);
+
+    /** Blocking frame: 1 data (FFI structs written), 2 barrier, 0 closed. */
+    public static native int subNextFrame(long sub, long arrayAddr, long schemaAddr);
+
+    /** Non-blocking frame: 1 data, 2 barrier, 0 nothing-ready-or-closed. */
+    public static native int subTryNextFrame(long sub, long arrayAddr, long schemaAddr);
+
+    /** Returns the epoch of the last barrier frame. */
+    public static native long subFrameEpoch(long sub);
+
+    /** Returns the checkpoint id of the last barrier frame. */
+    public static native long subFrameCheckpointId(long sub);
+
+    /** Returns the through-sequence of the last barrier frame. */
+    public static native long subFrameThroughSequence(long sub);
+
+    /** Returns the sequence of the last barrier frame. */
+    public static native long subFrameSequence(long sub);
+
+    /** Returns whether the subscription is still active. */
+    public static native boolean subIsActive(long sub);
+
+    /** Cancels the subscription. */
+    public static native void subCancel(long sub);
+
+    /** Frees the subscription handle; idempotent. */
+    public static native void subFree(long sub);
+
+    // ---- callback subscriptions (plan 03 §4) ----
+
+    /** Starts a callback subscription over a SQL query; returns the worker handle. */
+    public static native long subscribeCallbackQuery(long conn, long subscriptionId, String sql);
+
+    /** Starts a callback subscription over a named stream; returns the worker handle. */
+    public static native long subscribeCallbackStream(long conn, long subscriptionId, String streamName);
+
+    /** Stop request (listener threw): the worker exits at its next check. */
+    public static native void callbackRequestStop(long callback);
+
+    /** Returns whether the callback worker is still running. */
+    public static native boolean callbackIsActive(long callback);
+
+    /** Requests stop and joins the worker (bounded 5 s); returns whether it exited in time. */
+    public static native boolean callbackJoin(long callback);
+
+    /** Frees the callback worker; idempotent. */
+    public static native void callbackFree(long callback);
+
     // ---- catalog ----
 
     /** Lists source names. */

@@ -12,6 +12,7 @@ use laminar_db::api::{codes, ApiError};
 
 /// Every fallible path inside a native method funnels into `Failure`; the
 /// [`ThrowLaminar`] policy converts it into a mapped Java exception.
+#[derive(Debug)]
 pub(crate) enum Failure {
     Api(ApiError),
     Jni(JniError),
