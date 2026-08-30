@@ -22,7 +22,8 @@ verify:
     just test
 
 # Review gate (plan 06 §2): Phase-0 tooling + SpotBugs + JaCoCo zero-coverage.
-review:
+# mvn verify runs the test suite, so the cdylib must be staged first.
+review: build
     cargo fmt --check
     cargo clippy --all-targets -- -D warnings
     cargo machete
@@ -32,6 +33,11 @@ review:
 # Every `#[allow(...)]` in src/ must carry an inline `WHY:` justification.
 allows-grep:
     @! grep -rn '#\[allow(' src/ | grep -v 'WHY:'
+
+# JMH suite (plan 03 §5); append results to docs/benchmarks.md manually.
+bench: build
+    cd benchmarks && mvn -q package && java -Djava.library.path=../target-native/debug \
+        -jar target/benchmarks.jar -f 1 -wi 2 -i 3 || true
 
 clean:
     cargo clean
