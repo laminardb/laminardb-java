@@ -1,7 +1,6 @@
 # Plan 04 — Release engineering: packaging, cross-compilation, publishing
 
-Status: **Not started** · Read before exiting Phase 1 (its artifact layout constrains
-Phase 0/1 build structure). Owns everything between "tests green" and "a user in a bare
+Status: **Wired (2026-08-29); first actual release blocked on maintainer credentials** · Read before exiting Phase 1 (its artifact layout constrains Phase 0/1 build structure). Owns everything between "tests green" and "a user in a bare
 Maven project succeeds".
 
 ## 1 — Artifact layout
@@ -55,15 +54,16 @@ prints a warning (JNI and FFM alike, JEP 472); functionality is unaffected today
 
 Toolchain: `cargo-zigbuild` for Linux targets from any host; native runners for macOS
 and Windows (Apple silicon runner for darwin-aarch64; darwin-amd64 via
-`macos-13`-class runner or `--target x86_64-apple-darwin` universal logic — use plain
-per-target builds, no universal2 fat binaries).
+`--target x86_64-apple-darwin` cross-compilation on the arm64 runner — GitHub
+retired the Intel macOS runners in 2026-08, recorded 2026-08-30 when
+`macos-13` never provisioned; per-target builds, no universal2 fat binaries).
 
 | Target | glibc/toolchain baseline | Runner | Phase |
 |---|---|---|---|
 | `x86_64-unknown-linux-gnu` | 2.28 (zigbuild `--glibc 2.28`, manylinux_2_28 parity with the Python wheels) | ubuntu-latest | 1 |
 | `aarch64-unknown-linux-gnu` | 2.28 | ubuntu-latest + qemu or native arm runner | 1 |
 | `aarch64-apple-darwin` | runner SDK | macos-latest | 1 |
-| `x86_64-apple-darwin` | runner SDK | macos-intel-class | 1 |
+| `x86_64-apple-darwin` | runner SDK | cross-compiled on `macos-latest` (Intel runners retired by GitHub, 2026-08; per this table's own alternative) | 1 |
 | `x86_64-pc-windows-msvc` | MSVC | windows-latest | 2 |
 
 Each build job compiles `--release`, strips symbols (profile already sets
@@ -90,6 +90,16 @@ Trigger: tag `v*`. Jobs, in order:
 5. **verify-publish**: poll Central for the artifact's resolvability (the Python repo's
    failed-PyPI-publish failure mode, structurally caught); comment the release tag with
    the verified coordinates.
+
+   Wired status: release.yml implements jobs 1–6 (assemble-and-test runs the
+   suite against the packaged jar and the bare-project quickstart via
+   `scripts/bare-quickstart.sh`; the pom's `central` profile carries
+   central-publishing/source/javadoc/gpg plugins). **Blocker (one-time,
+   maintainer-only):** Central Portal namespace ownership for `io.laminardb`,
+   GPG key upload, and the `maven-central` GitHub environment (secrets
+   `CENTRAL_TOKEN`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`, with required
+   reviewers). The publish job fails with a recorded error until these
+   exist — deliberately, so no release ships unverified.
 6. **github-release**: notes from CHANGELOG section, jar + checksums attached.
 
 Smoke-on-clean-env: step 3's bare-project test must run `mvn test` offline-of-this-repo

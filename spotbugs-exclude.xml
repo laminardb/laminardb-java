@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+  <!-- ArrowBatch.root() intentionally hands the caller the imported root:
+       reading through arrow-java's VectorSchemaRoot is the documented access
+       pattern (plan 02 §4), the root is recreated per ArrowBatch, and
+       VectorSchemaRoot.close() is idempotent so a user close followed by
+       ArrowBatch.close() is safe. -->
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP"/>
+    <Or>
+      <Class name="io.laminardb.ArrowBatch"/>
+    </Or>
+  </Match>
+  <!-- LaminarDB.defaultAllocator() intentionally exposes the process-wide
+       allocator: sharing it is the documented allocator story (plan 02 §4);
+       a defensive copy is meaningless for an allocator. -->
+  <Match>
+    <Bug pattern="MS_EXPOSE_REP"/>
+    <Class name="io.laminardb.LaminarDB"/>
+  </Match>
+</FindBugsFilter>

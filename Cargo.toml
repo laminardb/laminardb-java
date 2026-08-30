@@ -1,6 +1,6 @@
 [package]
 name = "laminar-java"
-version = "0.30.0" # tracks the pinned core tag; see plan 04 §3 before first release
+version = "0.30.0-alpha" # tracks the pinned core tag; -alpha is the Phase 1 channel (plan 04 §3)
 edition = "2021" # matches the core workspace edition at the pin
 rust-version = "1.95" # core workspace floor at the pin
 license = "Apache-2.0"
@@ -12,6 +12,8 @@ name = "laminar_java" # liblaminar_java.so / liblaminar_java.dylib / laminar_jav
 [dependencies]
 jni = "0.22"
 laminar-db = { git = "https://github.com/laminardb/laminardb", tag = "v0.30.0", default-features = false, features = ["api"] }
+# Same tag as laminar-db: names StreamCheckpointConfig for the config builder.
+laminar-core = { git = "https://github.com/laminardb/laminardb", tag = "v0.30.0" }
 arrow = { version = "=58.4.0", default-features = false, features = ["ffi"] } # match the core's workspace pin exactly
 tokio = { version = "1", features = ["rt-multi-thread", "time"] }
 parking_lot = "0.12"

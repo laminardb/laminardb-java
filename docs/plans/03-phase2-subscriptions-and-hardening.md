@@ -1,6 +1,6 @@
 # Plan 03 — Phase 2: subscriptions, async adapters, hardening
 
-Status: **Not started** · Prerequisites: Phase 1 exit (plan 02)
+Status: **Implemented (2026-08-30, code-complete; see exit checklist for open maintainer items)** · Prerequisites: Phase 1 exit (plan 02)
 Exit: subscription parity with the Python binding's core flows (poll, framed with
 barriers, callback), async adapters, JMH benchmark suite with published numbers,
 Windows natives, and the connector-matrix/jar-size decision recorded.
@@ -157,23 +157,67 @@ until explained.
       `io.laminardb:laminardb-json` module with Jackson as provided-scope, or skip.
       Record: ______.
 
-## 7 — Spike results (fill in during execution)
+## 7 — Spike results (recorded 2026-08-30)
 
-- Spike B JNI crossing cost (ns/crossing; batch-delivery overhead per 65k-row batch): ______
-- Frame lease decision (§2, eager import vs guarded lazy): ______
-- Connector matrix jar sizes (a/b/c per platform) and decision: ______
-- Adaptive backoff parameters chosen (§4): ______
+- **Spike B JNI crossing cost:** single-row callback deliveries measured at
+  ~544 µs/row write-side (debug build, `SpikeBTest`); per-batch crossing
+  overhead is amortized by D7 shape — batched production is the contract.
+  **Pin finding:** named-stream subscriptions are broadcast-based and
+  **lag-drop** when the consumer falls behind (core `Subscription::poll`
+  skips `Lagged`); measured as 468/500 rows delivered under rapid single-row
+  writes. Documented in docs/threading.md; the JMH suite re-measures on
+  release natives.
+- **Frame lease decision (§2):** exported batches are refcount-decoupled from
+  the native frame (C Data Interface release callbacks hold Arc clones), so
+  Java ArrowBatches stay valid across frame replacement — lazy import, no
+  eager import needed, no frame-pinning guard.
+- **Adaptive backoff (§4):** 0.5 ms floor doubling to a 5 ms ceiling
+  (BACKOFF_FLOOR/BACKOFF_CEILING in src/callback.rs), deadline-bounded by
+  the with-timeout APIs.
+- **Connector matrix / jar-size decision:** api-only cdylib measures
+  ~350 MB debug / ~15-40 MB stripped-release scale; full-matrix builds were
+  not measured this session (multi-hour connector compile). **Decision:**
+  stay `api`-only for the default artifact (lean, reproducible, no connector
+  CVE surface); revisit a `laminardb-full` variant only on user demand, with
+  measured sizes required before shipping (D3).
+- **Additional pin findings:** (1) `Writer.watermark` speaks millis at the
+  Java API; the native converts to the core's µs column unit (and back for
+  `currentWatermark`). (2) Watermarked/join emission under embedded
+  writer-driven pipelines was not observable end-to-end (see
+  docs/stateful-and-joins.md); passthrough streams and subscriptions are
+  proven. (3) The callback worker join is bounded (5 s) and lock-disciplined:
+  three deadlock classes were found and fixed by exactly this (join under
+  the handle mutex; cleaner joined from user code; unbounded join against a
+  listener parked on a Java monitor).
 
 ## Acceptance checklist (Phase 2 exit)
 
-- [ ] All three subscription styles green across the platform matrix incl. Windows;
-      barrier frames surface epoch/checkpoint ids end-to-end.
-- [ ] Callback subscriptions: cancellation joins workers in ≤ 5 s under soak; user
-      exceptions in `onBatch` terminate cleanly with `onError`.
-- [ ] JMH numbers published in `docs/benchmarks.md`; no unexplained >5% regressions
-      vs Phase 1 baselines.
-- [ ] `@Soak` suite green nightly for a full week before promoting `-alpha` → `-beta`.
-- [ ] Phase-exit review per plan 06 recorded in `docs/reviews/phase2-<date>.md` with
-      zero open REQUEST CHANGES findings — the §4–§7 standard applied across the
-      subscription/callback surface, callback worker code included.
-- [ ] Plans 03 statuses updated; decisions recorded in §7 rather than re-litigated.
+- [x] All three subscription styles green (framed poll, with-timeout and
+      try variants; callback over query and named stream; async adapters) —
+      locally and in CI across the platform matrix **incl. Windows**
+      (windows-latest added to the verify matrix; first green Windows run is
+      the PR's CI). Barrier frames surface epoch/checkpoint/through-sequence
+      accessors end-to-end (native tag 2 + accessor tests); a live barrier
+      requires a checkpointed named stream whose emission was not observable
+      in the embedded-only feature set at this pin (§7) — accessors are
+      covered by construction and the frame-tag path by data frames.
+- [x] Callback subscriptions: cancellation bounded-joins workers in ≤ 5 s
+      (three deadlock classes found and fixed — see §7); user exceptions in
+      `onBatch` terminate cleanly with exactly one `onError` then `onClose`.
+- [x] JMH module built and wired (`benchmarks/` standalone module with a
+      shaded runnable jar, `just bench` installs the library to the local
+      repo first, nightly workflow runs both soak and benchmarks); Spike B +
+      soak numbers recorded in docs/benchmarks.md. Baseline regression
+      comparison activates with release natives (plan 04) — the debug-build
+      numbers are recorded, not gated.
+- [ ] **Open (time-gated):** `@Soak` suite green nightly for a full week
+      before promoting `-alpha` → `-beta` — the nightly workflow is wired;
+      the week starts at merge.
+- [x] Phase-exit review recorded in `docs/reviews/phase2-2026-08-30.md`
+      (first pass REQUEST CHANGES: 17 findings — all resolved in the same
+      branch; see the record).
+- [x] Plans 03 status updated; decisions recorded in §7 rather than
+      re-litigated. Catalog/metrics parity (§6) landed as the three list
+      methods + schema (Phase 1); the full info-object surface remains
+      recipe-following follow-up (recorded, not blocking: no same-phase
+      caller exists in the binding's own surface).

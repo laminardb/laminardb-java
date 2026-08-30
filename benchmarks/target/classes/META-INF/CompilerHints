@@ -1,0 +1,12 @@
+dontinline,*.*_all_jmhStub
+dontinline,*.*_avgt_jmhStub
+dontinline,*.*_sample_jmhStub
+dontinline,*.*_ss_jmhStub
+dontinline,*.*_thrpt_jmhStub
+inline,io/laminardb/bench/LaminarBench.callbackDeliveryOverhead
+inline,io/laminardb/bench/LaminarBench.close
+inline,io/laminardb/bench/LaminarBench.mapInsertThroughput
+inline,io/laminardb/bench/LaminarBench.open
+inline,io/laminardb/bench/LaminarBench.openCloseCycle
+inline,io/laminardb/bench/LaminarBench.pollSubscriptionLatency
+inline,io/laminardb/bench/LaminarBench.queryRoundtrip

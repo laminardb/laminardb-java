@@ -8,7 +8,9 @@ default:
 build:
     cargo build
     mkdir -p target-native/debug
-    cp target-rust/debug/liblaminar_java.* target-native/debug/
+    # The cdylib's prefix/suffix are platform-dependent (lib*.so / lib*.dylib / *.dll).
+    cp target-rust/debug/liblaminar_java.* target-native/debug/ 2>/dev/null \
+        || cp target-rust/debug/laminar_java.* target-native/debug/
 
 # Build + run the JUnit suite against the staged cdylib.
 test: build
@@ -21,17 +23,28 @@ verify:
     cargo test
     just test
 
-# Review gate (plan 06 §2) for Phase-0 scope.
-review:
+# Review gate (plan 06 §2): Phase-0 tooling + SpotBugs + JaCoCo zero-coverage.
+# mvn verify runs the test suite, so the cdylib must be staged first.
+review: build
     cargo fmt --check
     cargo clippy --all-targets -- -D warnings
     cargo machete
     just allows-grep
-    mvn spotless:check checkstyle:check
+    mvn spotless:check checkstyle:check verify
 
 # Every `#[allow(...)]` in src/ must carry an inline `WHY:` justification.
 allows-grep:
     @! grep -rn '#\[allow(' src/ | grep -v 'WHY:'
+
+# JMH suite (plan 03 §5); append results to docs/benchmarks.md manually.
+# The benchmarks module is standalone: install the library to the local repo
+# first so it resolves without a reactor.
+bench: build
+    mvn -q -DskipTests -Djacoco.skip=true -Dspotbugs.skip=true -Dcheckstyle.skip=true -Dspotless.check.skip=true install
+    cd benchmarks && mvn -q package
+    cd benchmarks && java -Djava.library.path=../target-native/debug \
+        --add-opens java.base/java.nio=ALL-UNNAMED \
+        -jar target/benchmarks.jar -f 1 -wi 2 -i 3
 
 clean:
     cargo clean

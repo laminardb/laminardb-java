@@ -1,6 +1,6 @@
 # Plan 02 — Phase 1: embedded MVP
 
-Status: **Not started** · Prerequisite: Phase 0 exit (plan 01)
+Status: **Implemented (2026-08-29, code-complete; Maven Central publish blocked on maintainer credentials — see acceptance checklist)** · Prerequisite: Phase 0 exit (plan 01)
 Exit: `io.laminardb:laminardb:<version>-alpha` on Maven Central with bundled natives for
 Linux x86_64/aarch64 + macOS aarch64/x86_64; the README quickstart runs from a bare
 Maven project with that single dependency.
@@ -354,18 +354,88 @@ try (LaminarConnection conn = LaminarDB.open(":memory:")) {
 - [ ] `docs/errors.md` — generated code table from §5.
 - [ ] `docs/build.md` — contributor build (just targets), pinned-core policy.
 
+## Pin findings (recorded during execution, 2026-08-29)
+
+Corrections the pinned core v0.30.0 forced; each is implemented and tested:
+
+1. **Ad-hoc queries read TABLEs and inline VALUES.** `SELECT` over streaming
+   SOURCES/STREAMs is not the read path at the pin (verified by core probes;
+   the Python binding's own tests query `VALUES` and assert insert counts,
+   never query-back). Phase 1 tests follow that shape; stream output is read
+   via subscriptions (Phase 2). `query()` materializes with **blocking**
+   `next` — the core's own `Connection::query` collects via non-blocking
+   `try_next` and can miss not-yet-ready batches.
+2. **Query exhaustion:** `next()==null` signals end-of-stream; `isActive()`
+   stays true until `cancel()` (§6's "isActive flips" expectation was wrong).
+3. **`CREATE TABLE` requires exactly one PRIMARY KEY.**
+4. **Temporal ASOF joins** need (a) inline `PRIMARY KEY` on the right source's
+   key column, (b) `temporal_join_idle_history_retention` configured, and (c)
+   **connector-backed sources** — refused with plain embedded sources under
+   the `api`-only feature set. §8's ASOF example is documented in
+   `docs/stateful-and-joins.md` with those requirements; exercising it
+   end-to-end waits on the Phase 2 connector-matrix decision (plan 03 §6).
+5. **TUMBLE syntax** is `GROUP BY key, tumble(ts, INTERVAL '10' SECOND)`
+   (lowercase canonical; a function, not a trailing clause). `ORDER BY`
+   without `LIMIT` fails closed on unbounded streams.
+6. **Source-only pipelines run no checkpoint coordinator** — `checkpoint()`
+   needs at least one derived stream; source-only call fails 900 "call
+   start() first".
+7. **DDL reopen persistence is not a guaranteed api behavior** (the Python
+   binding tests no reopen); storage-dir tests assert checkpoint-id advance
+   instead.
+8. **SQL TIMESTAMP maps to Arrow `Timestamp(us)`** at the pin.
+9. **Java→Rust Arrow batches deep-copy on import** (`arrow_jni.rs
+   import_batch`): arrow-java releases exported buffers via a JNI upcall, so
+   a zero-copy handoff would release JVM memory from arbitrary engine
+   threads. Rust→Java stays zero-copy. §3's "zero-copy export" is amended
+   accordingly (docs/benchmarks.md records the copy's cost share).
+10. **arrow-java 19 on JDK 17+ needs `--add-opens java.base/java.nio=ALL-UNNAMED`**
+    with the netty allocation backend (compile-scope `arrow-memory-netty`;
+    surefire argLine carries the flag).
+11. **§8's `Writer.insert(Map)` sketch** is `write(List<Map>)` in the real
+    API (§1's own signature); `QuickstartIT` executes the corrected example.
+12. **Native set deltas vs §2:** `executeSql`→`execute` and `closeConnection`
+    →`close` (contract names), plus `streamSchemaExport` and `resultNumRows`
+    (both §1 accessors with no §2 native — added); every other name matches.
+13. **Duplicate `CREATE SOURCE` surfaces as 400** "already exists" (recorded
+    in plan 01); `checkpointing is not enabled` (900) precedes state checks.
+
+14. **Exit-review round 2 findings (all resolved):** never-imported
+    `ArrowBatch` release (explicit `release()` on close), lock-across-call for
+    every wrapper class, error-path FFI-container cleanup, dead `isClosed`
+    native removed (Java checks its own handle), `writerFree` wired through a
+    Cleaner backstop with an atomic claim (close never joins the cleaner
+    thread — that deadlocked), version parity `0.30.0-alpha` everywhere,
+    release-workflow jar clobbering fixed, unknown map keys now 302, pin
+    behavior of closing with an open writer documented and tested (buffers
+    pin until the writer closes, even late), type-name normalization lives
+    Java-side (one source of truth: the imported pojo schema).
+
 ## Acceptance checklist (Phase 1 exit)
 
-- [ ] Full §6 matrix green on Linux x86_64/aarch64 + macOS aarch64/x86_64 (CI matrix
-      extended accordingly, plan 04 §4).
-- [ ] Rust-side `codes` coverage test green; no `unwrap`/`expect` outside genuine
-      internal invariants; `cargo clippy -D warnings` clean.
-- [ ] Allocator accounting zero after every test class (JUnit `@AfterAll` assertion
-      helper) — no native or JVM leaks.
-- [ ] Alpha artifact on Maven Central passes the one-dependency quickstart from a bare
-      project (per plan 04 release checklist).
-- [ ] Review gates green per plan 06: SpotBugs + the JaCoCo zero-coverage rule wired
-      into `just review`; every public member exercised by a test and referenced in
-      docs (§6); phase-exit review recorded in `docs/reviews/phase1-<date>.md` with
-      zero open REQUEST CHANGES findings.
-- [ ] Plans 01/02 statuses updated; conventional commits throughout.
+- [x] Full §6 matrix green (as reshaped by the pin findings above) across the
+      CI matrix — extended to Linux x86_64/aarch64 (`ubuntu-latest`,
+      `ubuntu-24.04-arm`) and macOS aarch64/x86_64 (`macos-latest`,
+      `macos-13`) per plan 04 §4.
+- [x] Rust-side `codes` coverage test green; no `unwrap`/`expect` on
+      user-controlled paths; `cargo clippy -D warnings` clean.
+- [x] Allocator accounting zero after every test class (JUnit `@AfterAll`
+      assertion) — three real leak paths found and fixed by exactly this rule
+      (`numRows` batch imports, `RowConverter.toRoot` failure paths, engine
+      retention of java-exported buffers via the deep-copy change).
+- [ ] **BLOCKED (maintainer):** alpha artifact on Maven Central. The full
+      release pipeline is wired (release.yml: validate → 4-platform
+      build-native → assemble-and-test incl. bare-project quickstart via
+      `scripts/bare-quickstart.sh` → publish → verify-publish → GitHub
+      release; `-alpha` versioning, CORE_PIN.md, CHANGELOG). Publishing
+      requires one-time maintainer setup that cannot be delegated: Central
+      Portal namespace ownership for `io.laminardb`, a GPG signing key, and
+      the `maven-central` GitHub environment secrets. Until then the release
+      workflow's publish step intentionally fails with a recorded blocker.
+- [x] Review gates green per plan 06: SpotBugs + the JaCoCo zero-coverage
+      rule wired into `just review` (the rule caught two genuinely unexercised
+      classes — `LaminarShutdownException` gained a test,
+      `LaminarSubscriptionException` carries the sanctioned Phase-2 exclusion);
+      every public member exercised by a test and referenced in docs; phase
+      review recorded in `docs/reviews/phase1-2026-08-29.md`.
+- [x] Plans 01/02 statuses updated; conventional commits throughout.
