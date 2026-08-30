@@ -400,6 +400,17 @@ Corrections the pinned core v0.30.0 forced; each is implemented and tested:
 13. **Duplicate `CREATE SOURCE` surfaces as 400** "already exists" (recorded
     in plan 01); `checkpointing is not enabled` (900) precedes state checks.
 
+14. **Exit-review round 2 findings (all resolved):** never-imported
+    `ArrowBatch` release (explicit `release()` on close), lock-across-call for
+    every wrapper class, error-path FFI-container cleanup, dead `isClosed`
+    native removed (Java checks its own handle), `writerFree` wired through a
+    Cleaner backstop with an atomic claim (close never joins the cleaner
+    thread — that deadlocked), version parity `0.30.0-alpha` everywhere,
+    release-workflow jar clobbering fixed, unknown map keys now 302, pin
+    behavior of closing with an open writer documented and tested (buffers
+    pin until the writer closes, even late), type-name normalization lives
+    Java-side (one source of truth: the imported pojo schema).
+
 ## Acceptance checklist (Phase 1 exit)
 
 - [x] Full §6 matrix green (as reshaped by the pin findings above) across the

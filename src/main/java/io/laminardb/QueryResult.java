@@ -16,10 +16,10 @@ import org.apache.arrow.memory.BufferAllocator;
  * A materialized query result: all batches in native memory, imported into
  * {@link ArrowBatch}es lazily per access.
  *
- * <p>Thread-safe for reads; the caller owns the lifecycle: {@link #close()}
- * frees the native result. Closing does not invalidate already-imported
- * batches (their buffers are reference-counted), but unclosed batches leak
- * allocator memory. All accessors block only on native calls.
+ * <p>Single-owner, not thread-safe. The caller owns the lifecycle:
+ * {@link #close()} frees the native result. Closing does not invalidate
+ * already-imported batches (their buffers are reference-counted), but
+ * unclosed batches leak allocator memory. Accessors block on native calls.
  */
 public final class QueryResult implements AutoCloseable, Iterable<List<Object>> {
 
@@ -36,27 +36,46 @@ public final class QueryResult implements AutoCloseable, Iterable<List<Object>> 
 
     /** Returns the result's Arrow schema (not the binding's {@link Schema} view). */
     public org.apache.arrow.vector.types.pojo.Schema schema() {
-        long current = lockedHandle();
-        return ArrowBatch.importSchema(allocator, addr -> Native.resultSchemaExport(current, addr));
+        // The lock is held across the native call so close() cannot free the
+        // handle mid-export.
+        synchronized (lock) {
+            requireOpen();
+            return ArrowBatch.importSchema(allocator, addr -> Native.resultSchemaExport(handle, addr));
+        }
     }
 
     /** Returns the total number of rows across all batches. */
     public long numRows() {
-        return Native.resultNumRows(lockedHandle());
+        synchronized (lock) {
+            requireOpen();
+            return Native.resultNumRows(handle);
+        }
     }
 
     /** Returns the number of batches. */
     public int numBatches() {
-        return Native.resultNumBatches(lockedHandle());
+        synchronized (lock) {
+            requireOpen();
+            return Native.resultNumBatches(handle);
+        }
     }
 
     /** Returns batch {@code index}; each access wraps a fresh lazy import. */
     public ArrowBatch batch(int index) {
-        long current = lockedHandle();
         ArrowArray array = ArrowArray.allocateNew(allocator);
         ArrowSchema schema = ArrowSchema.allocateNew(allocator);
-        Native.resultExportBatch(current, index, array.memoryAddress(), schema.memoryAddress());
-        return new ArrowBatch(allocator, array, schema);
+        try {
+            synchronized (lock) {
+                requireOpen();
+                Native.resultExportBatch(handle, index, array.memoryAddress(), schema.memoryAddress());
+            }
+            return new ArrowBatch(allocator, array, schema);
+        } catch (RuntimeException e) {
+            // Error paths must not leak the Java-allocated FFI containers.
+            array.close();
+            schema.close();
+            throw e;
+        }
     }
 
     /**
@@ -121,12 +140,9 @@ public final class QueryResult implements AutoCloseable, Iterable<List<Object>> 
         }
     }
 
-    private long lockedHandle() {
-        synchronized (lock) {
-            if (handle == 0) {
-                throw new LaminarInternalException("QueryResult is closed", 900);
-            }
-            return handle;
+    private void requireOpen() {
+        if (handle == 0) {
+            throw new LaminarInternalException("QueryResult is closed", 900);
         }
     }
 }

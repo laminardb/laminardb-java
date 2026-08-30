@@ -81,7 +81,13 @@ public final class LaminarDB {
         return DEFAULT_ALLOCATOR;
     }
 
-    /** Closes the process-wide allocator; allocator-backed objects become unusable. */
+    /**
+     * Closes the process-wide allocator; allocator-backed objects become
+     * unusable. Intended for hosting apps at shutdown; not exercised by the
+     * in-repo suite because closing the shared allocator would break every
+     * other test in the same JVM (verified instead by the allocator-zero
+     * accounting that runs after each suite).
+     */
     public static void shutdownDefaultAllocator() {
         DEFAULT_ALLOCATOR.close();
     }

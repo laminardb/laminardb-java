@@ -25,6 +25,16 @@ on that runtime's worker threads. `close()`/`shutdown()` stop the engine for
 that connection; the runtime itself is process-global by design (mirrors the
 Python binding).
 
+## Closing with resources still open
+
+Closing a connection with an open `Writer` does not crash and the connection
+fully closes — but the open writer's undrained batches **keep their backing
+JVM buffers pinned until the writer itself is closed** (bounded: one buffer
+set per written batch). Closing the writer — even after the connection has
+closed — releases everything. Always close writers explicitly; `close()`
+flushes, closes the native writer, and releases every buffer set the engine
+held for it.
+
 ## Arrow memory
 
 `LaminarDB.defaultAllocator()` is the process-wide Arrow allocator used for

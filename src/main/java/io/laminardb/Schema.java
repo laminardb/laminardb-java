@@ -14,10 +14,6 @@ public final class Schema {
                 .toList();
     }
 
-    /** Returns an unmodifiable view of the fields. */
-
-    /** Returns the schema's fields, in declaration order. */
-    /** Returns the schema's fields, in declaration order. */
     public List<FieldInfo> fields() {
         return List.copyOf(fields);
     }
@@ -33,6 +29,9 @@ public final class Schema {
     }
 
     /** Mirrors the Rust-side canonical names (src/arrow_jni.rs {@code type_name}). */
+    // The canonical names are normalized here (Java-side), not in Rust: the
+    // imported pojo schema carries full ArrowType objects, so one source of
+    // truth suffices. Recorded in plan 02's pin findings.
     private static String typeName(ArrowType type) {
         if (type instanceof ArrowType.Int integer) {
             return (integer.getIsSigned() ? "" : "U") + "Int" + integer.getBitWidth();

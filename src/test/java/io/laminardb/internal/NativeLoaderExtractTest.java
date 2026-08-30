@@ -1,7 +1,6 @@
 package io.laminardb.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -23,7 +22,6 @@ class NativeLoaderExtractTest {
         Path extracted = NativeLoader.extractInto(resource, "liblaminar_java.dylib", cache);
         assertThat(extracted).exists();
         assertThat(Files.readString(extracted)).isEqualTo("fake cdylib bytes");
-        assertThat(cache.resolve("liblaminar_java.dylib.sha256")).exists();
 
         // Re-extraction with changed content rewrites the target.
         Files.writeString(source, "changed bytes", StandardCharsets.UTF_8);
@@ -35,9 +33,5 @@ class NativeLoaderExtractTest {
             assertThat(files.filter(p -> p.getFileName().toString().endsWith(".part")))
                     .isEmpty();
         }
-
-        // The production resolution order still ends at loadLibrary for this
-        // process (the dylib is already loaded once by other tests).
-        assertThatCode(() -> System.getProperty("laminardb.native.path")).doesNotThrowAnyException();
     }
 }

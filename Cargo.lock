@@ -2025,7 +2025,7 @@ dependencies = [
 
 [[package]]
 name = "laminar-java"
-version = "0.30.0"
+version = "0.30.0-alpha"
 dependencies = [
  "arrow",
  "jni",

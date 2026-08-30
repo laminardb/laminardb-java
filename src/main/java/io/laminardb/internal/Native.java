@@ -25,9 +25,6 @@ public final class Native {
     /** Closes the connection, consuming the handle; idempotent and null-tolerant. */
     public static native void close(long conn);
 
-    /** Returns whether the connection's native handle has been closed. */
-    public static native boolean isClosed(long conn);
-
     /** Starts all pipelines on the connection. */
     public static native void start(long conn);
 

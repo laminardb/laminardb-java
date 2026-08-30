@@ -33,7 +33,7 @@
       <artifactId>arrow-vector</artifactId>
       <version>${arrow.version}</version>
     </dependency>
-    <!-- Allocation-manager backend; netty needs no add-opens flag on JDK 17+. -->
+    <!-- Allocation-manager backend; arrow-java still requires the java.nio add-opens on JDK 17+ (see surefire argLine). -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-netty</artifactId>

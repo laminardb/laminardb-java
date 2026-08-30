@@ -52,7 +52,10 @@ class ConfigTest {
         try (LaminarConnection conn = LaminarDB.open()) {
             conn.execute("CREATE SOURCE t (a INT)");
             conn.start();
-            assertThatThrownBy(conn::checkpoint).isInstanceOf(LaminarException.class);
+            assertThatThrownBy(conn::checkpoint)
+                    .isInstanceOf(LaminarInternalException.class)
+                    .satisfies(e -> assertThat(((LaminarException) e).getCode()).isEqualTo(900))
+                    .satisfies(e -> assertThat(e.getMessage()).contains("not enabled"));
             assertThat(conn.isCheckpointEnabled()).isFalse();
         }
     }

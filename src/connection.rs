@@ -106,19 +106,6 @@ fn close(conn_ptr: jlong) -> Result<(), Failure> {
     Ok(())
 }
 
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_io_laminardb_internal_Native_isClosed<'caller>(
-    mut unowned_env: EnvUnowned<'caller>,
-    _class: JClass<'caller>,
-    conn_ptr: jlong,
-) -> jboolean {
-    let outcome = unowned_env.with_env(|_| {
-        let closed = conn(conn_ptr as *mut c_void)?.with(|inner| inner.is_none());
-        Ok::<_, Failure>(closed)
-    });
-    outcome.resolve::<ThrowLaminar>()
-}
-
 macro_rules! conn_call {
     ($(#[$meta:meta])* $name:ident, $call:expr) => {
         $(#[$meta])*

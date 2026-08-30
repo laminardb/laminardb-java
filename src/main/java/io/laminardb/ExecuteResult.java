@@ -28,26 +28,34 @@ public final class ExecuteResult implements AutoCloseable {
 
     /** Returns the statement's kind. */
     public Kind kind() {
-        long current = lockedHandle();
-        return switch (Native.executeKind(current)) {
-            case 0 -> Kind.DDL;
-            case 1 -> Kind.QUERY;
-            case 2 -> Kind.ROWS_AFFECTED;
-            case 3 -> Kind.METADATA;
-            default -> throw new LaminarInternalException("unknown execute kind", 900);
-        };
+        // The lock is held across the native call so close() cannot free the
+        // handle mid-read.
+        synchronized (lock) {
+            requireOpen();
+            return switch (Native.executeKind(handle)) {
+                case 0 -> Kind.DDL;
+                case 1 -> Kind.QUERY;
+                case 2 -> Kind.ROWS_AFFECTED;
+                case 3 -> Kind.METADATA;
+                default -> throw new LaminarInternalException("unknown execute kind", 900);
+            };
+        }
     }
 
     /** Returns the created/altered object's name; valid only for {@link Kind#DDL}. */
     public String ddlObject() {
-        long current = lockedHandle();
-        return Native.executeDdlObject(current);
+        synchronized (lock) {
+            requireOpen();
+            return Native.executeDdlObject(handle);
+        }
     }
 
     /** Returns the number of affected rows; valid only for {@link Kind#ROWS_AFFECTED}. */
     public long rowsAffected() {
-        long current = lockedHandle();
-        return Native.executeRowsAffected(current);
+        synchronized (lock) {
+            requireOpen();
+            return Native.executeRowsAffected(handle);
+        }
     }
 
     /** Frees the native result; idempotent. */
@@ -63,12 +71,9 @@ public final class ExecuteResult implements AutoCloseable {
         }
     }
 
-    private long lockedHandle() {
-        synchronized (lock) {
-            if (handle == 0) {
-                throw new LaminarInternalException("ExecuteResult is closed", 900);
-            }
-            return handle;
+    private void requireOpen() {
+        if (handle == 0) {
+            throw new LaminarInternalException("ExecuteResult is closed", 900);
         }
     }
 }

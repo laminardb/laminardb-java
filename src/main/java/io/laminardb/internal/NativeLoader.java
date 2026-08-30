@@ -91,12 +91,11 @@ public final class NativeLoader {
 
     /**
      * Extracts {@code resource} to {@code base/<libFile>} atomically
-     * (write-to-temp + rename); a matching SHA-256 sidecar skips re-extraction.
+     * (write-to-temp + rename); a matching existing file (SHA-256) skips re-extraction.
      * Package-private for the extraction unit test.
      */
     static Path extractInto(URL resource, String libFile, Path base) throws IOException {
         Path target = base.resolve(libFile);
-        Path sidecar = base.resolve(libFile + ".sha256");
         byte[] digest = sha256(resource.openStream());
         String expected = hex(digest);
         if (Files.isRegularFile(target)) {
@@ -113,7 +112,6 @@ public final class NativeLoader {
             Files.copy(in, staging, StandardCopyOption.REPLACE_EXISTING);
         }
         Files.move(staging, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        Files.writeString(sidecar, expected);
         LOG.log(Level.FINE, "extracted native: {0}", target);
         return target;
     }

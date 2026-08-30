@@ -105,7 +105,7 @@ class LaminarConnectionTest {
 
     @Test
     void versionIsSemver() {
-        assertThat(LaminarDB.getVersion()).matches("\\d+\\.\\d+\\.\\d+");
+        assertThat(LaminarDB.getVersion()).matches("\\d+\\.\\d+\\.\\d+(-[a-z0-9]+)?");
     }
 
     @Test

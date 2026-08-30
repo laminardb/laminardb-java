@@ -43,6 +43,8 @@ public final class LaminarConfig implements AutoCloseable {
     }
 
     long handle() {
+        // Callers hold the returned value only to pass it straight into a
+        // native call on this thread; the value is immutable while open.
         synchronized (lock) {
             if (handle == 0) {
                 throw new LaminarInternalException("LaminarConfig is closed", 900);

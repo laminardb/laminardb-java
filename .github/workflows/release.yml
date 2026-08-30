@@ -82,11 +82,10 @@ jobs:
           cache: maven
       - name: Package fat jar with bundled natives
         run: mvn -Dnatives.dir=downloaded-natives -DskipTests package
+      # Re-verify with bundling still active so the jar keeps /natives/ and
+      # the suite exercises NativeLoader's bundled-extraction path.
       - name: Suite against the packaged jar (bundled-natives load path)
-        run: |
-          mkdir -p target-native/debug
-          cp downloaded-natives/*/* target-native/debug/ 2>/dev/null || true
-          mvn -q -Dlaminardb.native.dir=target-native/debug verify
+        run: mvn -Dnatives.dir=downloaded-natives verify
       - name: Bare-project quickstart
         run: scripts/bare-quickstart.sh "$(mvn -q help:evaluate -Dexpression=project.version -DforceStdout)" downloaded-natives
 

@@ -28,8 +28,10 @@ public final class QueryStream implements AutoCloseable {
 
     /** Returns the stream's Arrow schema. */
     public org.apache.arrow.vector.types.pojo.Schema schema() {
-        long current = lockedHandle();
-        return ArrowBatch.importSchema(allocator, addr -> Native.streamSchemaExport(current, addr));
+        synchronized (lock) {
+            requireOpen();
+            return ArrowBatch.importSchema(allocator, addr -> Native.streamSchemaExport(handle, addr));
+        }
     }
 
     /** Blocking next; returns null at end of stream. */
@@ -43,28 +45,46 @@ public final class QueryStream implements AutoCloseable {
     }
 
     private ArrowBatch pull(boolean blocking) {
-        long current = lockedHandle();
         ArrowArray array = ArrowArray.allocateNew(allocator);
         ArrowSchema schema = ArrowSchema.allocateNew(allocator);
-        int got = blocking
-                ? Native.streamNext(current, array.memoryAddress(), schema.memoryAddress())
-                : Native.streamTryNext(current, array.memoryAddress(), schema.memoryAddress());
-        if (got != 1) {
+        try {
+            int got;
+            // The lock is held across the native call so close() cannot free
+            // the handle mid-pull.
+            synchronized (lock) {
+                requireOpen();
+                got = blocking
+                        ? Native.streamNext(handle, array.memoryAddress(), schema.memoryAddress())
+                        : Native.streamTryNext(handle, array.memoryAddress(), schema.memoryAddress());
+            }
+            if (got != 1) {
+                array.close();
+                schema.close();
+                return null;
+            }
+            return new ArrowBatch(allocator, array, schema);
+        } catch (RuntimeException e) {
+            // Error paths must not leak the Java-allocated FFI containers.
             array.close();
             schema.close();
-            return null;
+            throw e;
         }
-        return new ArrowBatch(allocator, array, schema);
     }
 
     /** Returns whether the stream is still active. */
     public boolean isActive() {
-        return Native.streamIsActive(lockedHandle());
+        synchronized (lock) {
+            requireOpen();
+            return Native.streamIsActive(handle);
+        }
     }
 
     /** Cancels the stream; idempotent. */
     public void cancel() {
-        Native.streamCancel(lockedHandle());
+        synchronized (lock) {
+            requireOpen();
+            Native.streamCancel(handle);
+        }
     }
 
     /** Frees the native stream; idempotent. */
@@ -80,12 +100,9 @@ public final class QueryStream implements AutoCloseable {
         }
     }
 
-    private long lockedHandle() {
-        synchronized (lock) {
-            if (handle == 0) {
-                throw new LaminarInternalException("QueryStream is closed", 900);
-            }
-            return handle;
+    private void requireOpen() {
+        if (handle == 0) {
+            throw new LaminarInternalException("QueryStream is closed", 900);
         }
     }
 }

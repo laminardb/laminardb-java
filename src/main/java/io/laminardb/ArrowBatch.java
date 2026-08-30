@@ -66,12 +66,16 @@ public final class ArrowBatch implements AutoCloseable {
             // no-ops for them and release the imported buffers via the root.
             root.close();
             root = null;
-            array.close();
-            schema.close();
         } else {
-            array.close();
-            schema.close();
+            // Never imported: the release callbacks arrow-rs installed fire
+            // only from the consumer side, so release explicitly before
+            // freeing the Java containers (close() alone would leak the
+            // Rust-side Arc/buffer clones).
+            array.release();
+            schema.release();
         }
+        array.close();
+        schema.close();
     }
 
     /** Materializes this batch as a list of row maps (convenience copy). */

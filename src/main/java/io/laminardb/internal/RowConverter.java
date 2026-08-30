@@ -3,7 +3,6 @@ package io.laminardb.internal;
 import io.laminardb.LaminarIngestionException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -11,7 +10,6 @@ import java.util.Map;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
@@ -59,6 +57,16 @@ public final class RowConverter {
         }
         if (!missing.isEmpty()) {
             throw ingestion("schema has fields absent from the source: " + missing, null);
+        }
+        java.util.Set<String> schemaNames =
+                root.getSchema().getFields().stream().map(Field::getName).collect(java.util.stream.Collectors.toSet());
+        for (Map<String, ?> map : rows) {
+            for (String key : map.keySet()) {
+                if (!schemaNames.contains(key)) {
+                    // Extra keys are a schema disagreement (plan 02 §3).
+                    throw ingestion("key not present in the source schema", key);
+                }
+            }
         }
         for (int row = 0; row < rows.size(); row++) {
             Map<String, ?> map = rows.get(row);
@@ -140,11 +148,6 @@ public final class RowConverter {
             }
             if (value instanceof Long l) {
                 v.setSafe(row, l);
-                return;
-            }
-        } else if (vector instanceof DateMilliVector v) {
-            if (value instanceof LocalDate d) {
-                v.setSafe(row, d.toEpochDay());
                 return;
             }
         }
@@ -229,9 +232,6 @@ public final class RowConverter {
         if (vector instanceof TimeStampNanoVector v) {
             return Instant.ofEpochSecond(
                     Math.floorDiv(v.get(row), 1_000_000_000L), Math.floorMod(v.get(row), 1_000_000_000L));
-        }
-        if (vector instanceof DateMilliVector v) {
-            return LocalDate.ofEpochDay(v.get(row));
         }
         if (vector.getField().getType() instanceof ArrowType.Timestamp) {
             // Future/other units fall back to arrow-java's own materialization.

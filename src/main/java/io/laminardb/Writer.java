@@ -22,8 +22,11 @@ import org.apache.arrow.vector.VectorSchemaRoot;
  */
 public final class Writer implements AutoCloseable {
 
+    private static final java.lang.ref.Cleaner CLEANER = java.lang.ref.Cleaner.create();
+
     private final BufferAllocator allocator;
     private final Object lock = new Object();
+    private final WriterBackstop backstop;
 
     /** Native handle; 0 means closed. Guarded by {@link #lock}. */
     private long handle;
@@ -31,6 +34,35 @@ public final class Writer implements AutoCloseable {
     Writer(long handle, BufferAllocator allocator) {
         this.handle = handle;
         this.allocator = allocator;
+        // Leak backstop only (plan 00 §5): explicit close() is the real path.
+        // The handle is claimed atomically (getAndSet), so whichever of close
+        // or the cleaner runs first frees it and the other becomes a no-op —
+        // exactly one free, no use-after-free. close() never calls clean():
+        // joining the cleaner thread from user code deadlocks when another
+        // backstop is mid-flight.
+        this.backstop = new WriterBackstop(handle);
+        CLEANER.register(this, backstop);
+    }
+
+    private static final class WriterBackstop implements Runnable {
+        private final java.util.concurrent.atomic.AtomicLong handle;
+
+        WriterBackstop(long handle) {
+            this.handle = new java.util.concurrent.atomic.AtomicLong(handle);
+        }
+
+        /** Claims the handle: the claimer is the sole freer. */
+        long claim() {
+            return handle.getAndSet(0);
+        }
+
+        @Override
+        public void run() {
+            long current = claim();
+            if (current != 0) {
+                io.laminardb.internal.Native.writerFree(current);
+            }
+        }
     }
 
     /** Writes one batch, zero-copy: the root is exported via the C Data Interface. */
@@ -73,7 +105,7 @@ public final class Writer implements AutoCloseable {
     public void write(List<Map<String, ?>> rows) {
         Objects.requireNonNull(rows, "rows");
         withWriter(handle -> {
-            try (VectorSchemaRoot root = io.laminardb.internal.RowConverter.toRoot(rows, writerSchema(), allocator)) {
+            try (VectorSchemaRoot root = io.laminardb.internal.RowConverter.toRoot(rows, arrowSchema(), allocator)) {
                 write(root);
             }
         });
@@ -92,19 +124,24 @@ public final class Writer implements AutoCloseable {
 
     /** Returns the writer's current watermark. */
     public long currentWatermark() {
-        long current = lockedHandle();
-        return Native.writerCurrentWatermark(current);
+        // The lock is held across the native call so close() cannot free the
+        // handle mid-read.
+        synchronized (lock) {
+            requireOpen();
+            return Native.writerCurrentWatermark(handle);
+        }
     }
 
     /** Returns the source's schema as the binding's {@link Schema} view. */
     public Schema schema() {
-        long current = lockedHandle();
-        return new Schema(ArrowBatch.importSchema(allocator, addr -> Native.writerSchemaExport(current, addr)));
+        return new Schema(arrowSchema());
     }
 
-    private org.apache.arrow.vector.types.pojo.Schema writerSchema() {
-        long current = lockedHandle();
-        return ArrowBatch.importSchema(allocator, addr -> Native.writerSchemaExport(current, addr));
+    private org.apache.arrow.vector.types.pojo.Schema arrowSchema() {
+        synchronized (lock) {
+            requireOpen();
+            return ArrowBatch.importSchema(allocator, addr -> Native.writerSchemaExport(handle, addr));
+        }
     }
 
     /** Flushes the writer's buffers. */
@@ -122,7 +159,13 @@ public final class Writer implements AutoCloseable {
             current = handle;
             handle = 0;
         }
-        if (current != 0) {
+        if (current == 0) {
+            return;
+        }
+        // The atomic claim decides the freer exactly once: if the cleaner
+        // backstop already claimed (only possible for an abandoned writer,
+        // which cannot reach here), it owns the free.
+        if (backstop.claim() == current) {
             Native.writerClose(current);
         }
     }
@@ -142,12 +185,9 @@ public final class Writer implements AutoCloseable {
         }
     }
 
-    private long lockedHandle() {
-        synchronized (lock) {
-            if (handle == 0) {
-                throw new LaminarIngestionException("Writer is closed", 301);
-            }
-            return handle;
+    private void requireOpen() {
+        if (handle == 0) {
+            throw new LaminarIngestionException("Writer is closed", 301);
         }
     }
 }
