@@ -45,15 +45,18 @@ jobs:
           cache: maven
       - run: just review
 
-  # Plan 04 §4: the full Phase-1 platform matrix — Linux x86_64/aarch64 and
-  # macOS x86_64/aarch64 — each running the complete suite natively.
+  # Plan 04 §4: the full Phase-1 platform matrix — Linux x86_64/aarch64,
+  # macOS aarch64, Windows x86_64 — each running the complete suite natively.
+  # macOS x86_64: GitHub retired the Intel macOS runners (macos-13 never
+  # provisions, 2026-08); per plan 04 §4's own alternative, darwin-amd64 is
+  # proven by cross-compiling on the arm64 runner.
   verify:
     name: verify (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-13, windows-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -69,3 +72,18 @@ jobs:
           java-version: 17
           cache: maven
       - run: just verify
+
+  verify-darwin-amd64-cross:
+    name: verify (darwin-amd64 cross-build)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: x86_64-apple-darwin
+      - run: cargo build --target x86_64-apple-darwin
+      - run: cargo clippy --all-targets --target x86_64-apple-darwin -- -D warnings
