@@ -8,7 +8,9 @@ default:
 build:
     cargo build
     mkdir -p target-native/debug
-    cp target-rust/debug/liblaminar_java.* target-native/debug/
+    # The cdylib's prefix/suffix are platform-dependent (lib*.so / lib*.dylib / *.dll).
+    cp target-rust/debug/liblaminar_java.* target-native/debug/ 2>/dev/null \
+        || cp target-rust/debug/laminar_java.* target-native/debug/
 
 # Build + run the JUnit suite against the staged cdylib.
 test: build
