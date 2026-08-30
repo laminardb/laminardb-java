@@ -54,15 +54,16 @@ prints a warning (JNI and FFM alike, JEP 472); functionality is unaffected today
 
 Toolchain: `cargo-zigbuild` for Linux targets from any host; native runners for macOS
 and Windows (Apple silicon runner for darwin-aarch64; darwin-amd64 via
-`macos-13`-class runner or `--target x86_64-apple-darwin` universal logic — use plain
-per-target builds, no universal2 fat binaries).
+`--target x86_64-apple-darwin` cross-compilation on the arm64 runner — GitHub
+retired the Intel macOS runners in 2026-08, recorded 2026-08-30 when
+`macos-13` never provisioned; per-target builds, no universal2 fat binaries).
 
 | Target | glibc/toolchain baseline | Runner | Phase |
 |---|---|---|---|
 | `x86_64-unknown-linux-gnu` | 2.28 (zigbuild `--glibc 2.28`, manylinux_2_28 parity with the Python wheels) | ubuntu-latest | 1 |
 | `aarch64-unknown-linux-gnu` | 2.28 | ubuntu-latest + qemu or native arm runner | 1 |
 | `aarch64-apple-darwin` | runner SDK | macos-latest | 1 |
-| `x86_64-apple-darwin` | runner SDK | macos-intel-class | 1 |
+| `x86_64-apple-darwin` | runner SDK | cross-compiled on `macos-latest` (Intel runners retired by GitHub, 2026-08; per this table's own alternative) | 1 |
 | `x86_64-pc-windows-msvc` | MSVC | windows-latest | 2 |
 
 Each build job compiles `--release`, strips symbols (profile already sets
