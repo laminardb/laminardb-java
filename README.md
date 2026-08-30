@@ -1,6 +1,6 @@
 # laminardb-java — implementation plan series
 
-Status: **Phase 1 implemented (2026-08-29); Phases 2–3 planned** · Owner: LaminarDB team
+Status: **Phases 0–2 implemented (2026-08-30); Phase 3 future** · Owner: LaminarDB team
 
 Java bindings for the Rust [LaminarDB](https://github.com/laminardb/laminardb) streaming
 database. Phase 0 (repo scaffold, build wiring, CI) is implemented: a Rust JNI cdylib
@@ -21,7 +21,12 @@ try (LaminarConnection conn = LaminarDB.open()) {
 
 Streaming sources, writers with event-time watermarks, and the stateful-join
 walkthrough: [docs/stateful-and-joins.md](docs/stateful-and-joins.md). Errors:
-[docs/errors.md](docs/errors.md). Threading: [docs/threading.md](docs/threading.md).
+[docs/errors.md](docs/errors.md). Threading:
+[docs/threading.md](docs/threading.md).
+
+Subscriptions (Phase 2): framed poll access to named streams with checkpoint
+barriers, push delivery to a `SubscriptionListener` on a dedicated worker
+thread, and async adapters (`queryAsync`, bounded `streamBatches`).
 
 JDK 17+ requires `--add-opens java.base/java.nio=ALL-UNNAMED` (arrow-java).
 

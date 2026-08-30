@@ -3,7 +3,6 @@ package io.laminardb;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -61,8 +60,11 @@ class ConfigTest {
     }
 
     @Test
-    void checkpointOnConfiguredPipelineReturnsAnId(@TempDir Path dir) throws Exception {
-        Path db = Files.createDirectories(dir.resolve("ckpt"));
+    void checkpointOnConfiguredPipelineReturnsAnId() {
+        // Under target/ rather than @TempDir: the engine's checkpoint files
+        // can outlive the test, and JUnit's temp-dir cleanup would fail on
+        // the held paths.
+        Path db = Path.of("target", "config-test-ckpt");
         LaminarConfig config = LaminarConfig.builder()
                 .storageDir(db)
                 .checkpointIntervalMs(60_000)
