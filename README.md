@@ -1,13 +1,16 @@
-# laminardb-java — implementation plan series
+# laminardb-java
 
-Status: **Phases 0–2 implemented (2026-08-30); Phase 3 future** · Owner: LaminarDB team
+Embedded streaming SQL for the JVM — Java bindings for
+[LaminarDB](https://github.com/laminardb/laminardb), a streaming database
+written in Rust. One dependency, one line to open, Arrow-native data flow.
 
-Java bindings for the Rust [LaminarDB](https://github.com/laminardb/laminardb) streaming
-database. Phase 0 (repo scaffold, build wiring, CI) is implemented: a Rust JNI cdylib
-over the core's `api` feature (pinned to git tag `v0.30.0`), a minimal `io.laminardb`
-API, one-command build/test/verify/review via `just`, and a two-OS CI matrix.
-
-## Quickstart
+```xml
+<dependency>
+  <groupId>io.laminardb</groupId>
+  <artifactId>laminardb</artifactId>
+  <version>0.30.0-alpha</version>
+</dependency>
+```
 
 ```java
 try (LaminarConnection conn = LaminarDB.open()) {
@@ -19,51 +22,108 @@ try (LaminarConnection conn = LaminarDB.open()) {
 }
 ```
 
-Streaming sources, writers with event-time watermarks, and the stateful-join
-walkthrough: [docs/stateful-and-joins.md](docs/stateful-and-joins.md). Errors:
-[docs/errors.md](docs/errors.md). Threading:
-[docs/threading.md](docs/threading.md).
+## What you get
 
-Subscriptions (Phase 2): framed poll access to named streams with checkpoint
-barriers, push delivery to a `SubscriptionListener` on a dedicated worker
-thread, and async adapters (`queryAsync`, bounded `streamBatches`).
+- **Streaming SQL, in-process.** Define sources, derived streams, and
+  windowed aggregations in SQL; feed them from Java; advance event time with
+  watermarks; read results back as Arrow batches — all without a server.
+- **Arrow as the data plane.** Zero-copy batch exchange via the Arrow C Data
+  Interface (`VectorSchemaRoot` in, `ArrowBatch` out), with friendly
+  `List<Map<String,?>>` conversions when you don't want to touch Arrow.
+- **Three ways to consume a stream.** Framed polling (`nextFrame()` with data
+  batches and checkpoint barriers), push delivery to a listener on a
+  background thread, and bounded-lazy `Stream<ArrowBatch>` adapters.
+- **Typed errors.** Every failure arrives as a `LaminarException` subclass
+  carrying the engine's numeric code — parse errors, closed connections,
+  watermark lag, and so on are distinguishable in a `catch`.
+- **Bundled natives.** The jar ships `linux-amd64`, `linux-aarch64`,
+  `macos-amd64`, and `macos-aarch64` libraries and picks the right one at
+  load time.
 
-JDK 17+ requires `--add-opens java.base/java.nio=ALL-UNNAMED` (arrow-java).
+## A streaming example
 
-## Building and testing
+```java
+try (LaminarConnection conn = LaminarDB.open()) {
+    conn.execute("CREATE SOURCE events (kind VARCHAR, value DOUBLE)");
+    conn.execute("CREATE STREAM alerts AS SELECT kind, value FROM events WHERE value > 100");
+    conn.start();
 
-Requires Rust stable (rustfmt + clippy), JDK 17+, Maven, `just`, and `cargo-machete`
-(`cargo install cargo-machete`). Then: `just verify` (correctness gate) and `just
-review` (review gate). See [docs/build.md](docs/build.md) and `AGENTS.md` for the
-full operating context.
+    try (Writer writer = conn.writer("events");
+         StreamSubscription sub = conn.subscribe("alerts")) {
+        writer.write(List.of(
+            Map.of("kind", "temp", "value", 42.0),
+            Map.of("kind", "temp", "value", 120.0)));   // passes the filter
 
-## Plan index
+        Frame frame = sub.nextFrame(Duration.ofSeconds(10));
+        if (frame instanceof Frame.Data data) {
+            data.batch().toMaps(); // [{kind=temp, value=120.0}]
+            data.batch().close();
+        }
+    }
+}
+```
 
-| # | Plan | Phase | Depends on |
-|---|---|---|---|
-| 1 | [00-overview-and-decisions.md](docs/plans/00-overview-and-decisions.md) | read first | — |
-| 2 | [01-phase0-scaffold-and-build.md](docs/plans/01-phase0-scaffold-and-build.md) | Phase 0 — scaffold, build wiring, CI | 00 |
-| 3 | [02-phase1-embedded-mvp.md](docs/plans/02-phase1-embedded-mvp.md) | Phase 1 — embedded MVP, first Maven artifact | 01 |
-| 4 | [03-phase2-subscriptions-and-hardening.md](docs/plans/03-phase2-subscriptions-and-hardening.md) | Phase 2 — subscriptions, async, hardening | 02 |
-| 5 | [04-release-engineering.md](docs/plans/04-release-engineering.md) | Cross-phase — packaging, publishing, versioning | read before finishing 01 |
-| 6 | [05-phase3-distributed-future.md](docs/plans/05-phase3-distributed-future.md) | Phase 3 — future: server driver, FFM backend | 02 |
-| 7 | [06-review-gates.md](docs/plans/06-review-gates.md) | Cross-phase — review gates: structure, slop, docs, dead code, tests | every PR + every phase exit |
+Sources can also declare event-time watermarks
+(`WATERMARK FOR ts AS ts - INTERVAL '5' SECOND`) and writers advance them
+(`writer.watermark(...)`) — windowed joins and aggregations are planned by
+the engine at this version, though observing their output through embedded
+subscriptions is [still limited](docs/stateful-and-joins.md#a-pin-time-observation-about-watermarkedjoin-emission-v0300).
 
-Keep plan status checkboxes updated as tasks complete; when a phase ships, mark its
-plan header `Status: Implemented (<date>, <release>)` and leave it in place as a record.
+Push delivery instead of polling:
 
-## Reference material
+```java
+conn.subscribeStream("counts", new SubscriptionListener() {
+    public void onBatch(ArrowBatch batch) { batch.close(); /* consume */ }
+    public void onError(LaminarException e) { /* code + message */ }
+    public void onClose() { }
+});
+```
 
-- Core repository: the `api` feature of `crates/laminar-db` (see plan 00 appendix for the
-  verified surface as of core `v0.30.x`; the pinned core tag is always authoritative).
-- Python binding (architectural mirror): https://github.com/laminardb/laminardb-python —
-  especially `src/error.rs`, `src/async_support.rs`, `src/callback.rs`,
-  `src/stream_subscription.rs`, and its `AGENTS.md` binding invariants.
-- Existence proof for the JNI + Arrow pattern: https://github.com/apache/datafusion-java.
-- Reviewer prompt: paste [agents/code-review.md](agents/code-review.md) as the
-  instructions of any reviewer (human or agent) — it enforces
-  [docs/plans/06-review-gates.md](docs/plans/06-review-gates.md).
+More: [streaming and joins walkthrough](docs/stateful-and-joins.md) ·
+[error codes](docs/errors.md) · [threading model](docs/threading.md).
+
+## Requirements
+
+| | |
+|---|---|
+| Java | 17 or 21 (25 is blocked on an arrow-java upgrade — see [docs/build.md](docs/build.md)) |
+| OS | Linux (amd64, aarch64), macOS (amd64, aarch64) |
+| JVM flag | `--add-opens java.base/java.nio=ALL-UNNAMED` (arrow-java requirement) |
+
+Status is **alpha** (APIs may change). The engine underneath is the pinned
+core [`v0.30.0`](https://github.com/laminardb/laminardb); the binding
+version always tracks the core version.
+
+## Building from source
+
+You need Rust stable (rustfmt + clippy), JDK 17+, Maven, and
+[`just`](https://github.com/casey/just).
+
+```
+just verify   # format + lints + Rust tests + full JUnit suite
+just review   # the above plus SpotBugs, JaCoCo coverage floor, Checkstyle
+just bench    # JMH benchmark suite
+```
+
+Details in [docs/build.md](docs/build.md).
+
+## Project layout
+
+- `src/*.rs` — the JNI native library (Rust cdylib over the core's `api`)
+- `src/main/java/io/laminardb` — the public Java API
+- `src/main/java/io/laminardb/internal` — the native seam (not public API)
+- `docs/` — user guides, plus the implementation plan series and phase
+  review records under `docs/plans/` and `docs/reviews/`
+- `benchmarks/` — JMH suite
+
+## Contributing
+
+The repository is developed against the plan series in
+[docs/plans/](docs/plans/) — each phase shipped with an adversarial review
+record in [docs/reviews/](docs/reviews/). PRs must pass `just verify` and
+`just review` (CI enforces both). The reviewer prompt lives in
+[agents/code-review.md](agents/code-review.md).
 
 ## License
 
-Apache-2.0, matching the core repository.
+Apache-2.0, matching the [core repository](https://github.com/laminardb/laminardb).
