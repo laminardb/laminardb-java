@@ -80,9 +80,12 @@ Trigger: tag `v*`. Jobs, in order:
 2. **build-native** (matrix per §4): cargo-zigbuild/native build → upload
    `liblaminar_java-<target>` artifact.
 3. **assemble-and-test**: download all natives, `mvn -Dnatives.dir=… package` producing
-   the fat jar, run the JUnit matrix against the packaged jar (Java 17/21/21-virtual/
-   25 matrix), run the `QuickstartIT` from a **bare** `mvn archetype:generate` project
-   depending only on the built jar.
+   the fat jar, run the JUnit matrix against the packaged jar (Java 17/21 matrix;
+   **Java 25 is blocked on an arrow-java 19 upgrade** — the netty-backed allocator
+   probes `EmptyByteBuf.memoryAddress()` at init, which JDK 25's module restrictions
+   break on both netty 4.1 and 4.2; recorded 2026-09-02, re-add with the arrow bump),
+   run the quickstart from a **bare** `mvn archetype:generate` project depending only
+   on the built jar.
 4. **publish**: GPG-sign (secret-stored key), publish to Maven Central via the Central
    Portal (`central-publishing-maven-plugin`; namespace `io.laminardb` verified/owned
    once, manually, before first release — one-time setup task, do it in Phase 0 to

@@ -61,7 +61,8 @@ accordingly.
 
 ## JVM flags
 
-JDK 17+ requires `--add-opens java.base/java.nio=ALL-UNNAMED` for arrow-java's
+JDK 17/21 require `--add-opens java.base/java.nio=ALL-UNNAMED` for arrow-java's
 allocation managers (netty or unsafe alike). On JDK 24+ the JVM additionally
 prints a native-access warning under JEP 472; silence it with
-`--enable-native-access=ALL-UNNAMED`. Functionality is unaffected.
+`--enable-native-access=ALL-UNNAMED`. **JDK 25 is blocked** on the arrow-java
+19 upgrade (the netty allocator's init fails under 25's restrictions).
