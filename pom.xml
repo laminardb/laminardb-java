@@ -38,6 +38,21 @@
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-netty</artifactId>
       <version>${arrow.version}</version>
+      <exclusions>
+        <exclusion>
+          <!-- arrow-java 19 pins a netty-common whose EmptyByteBuf
+               .memoryAddress() throws on JDK 25; align with the 4.2.x
+               netty-buffer the netty-buffer-patch already brings (our
+               release matrix runs Java 25). -->
+          <groupId>io.netty</groupId>
+          <artifactId>netty-common</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-common</artifactId>
+      <version>4.2.9.Final</version>
     </dependency>
 
     <dependency>
