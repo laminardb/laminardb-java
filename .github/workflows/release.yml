@@ -66,8 +66,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Java 25 blocked on an arrow-java 19 upgrade: the netty-backed
+        # allocator probes EmptyByteBuf.memoryAddress() at init, which JDK
+        # 25's module restrictions break (both netty 4.1 and 4.2). Recorded
+        # in plan 04 §5; re-add 25 with the arrow-java bump.
         os: [ubuntu-latest, macos-latest]
-        java: [17, 21, 25]
+        java: [17, 21]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
