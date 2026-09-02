@@ -131,7 +131,11 @@ jobs:
             </servers>
           </settings>
           SETTINGS
-          mvn -Dnatives.dir=downloaded-natives -Pcentral deploy
+          # Tests already ran in assemble-and-test against the packaged jar;
+          # here they would fail anyway: the test phase precedes
+          # prepare-package, so the bundled /natives/ resources do not exist
+          # yet and this job sets no java.library.path.
+          mvn -DskipTests -Dnatives.dir=downloaded-natives -Pcentral deploy
       - name: Record missing-credentials blocker
         if: ${{ env.CENTRAL_TOKEN == '' || env.CENTRAL_USERNAME == '' }}
         env:
