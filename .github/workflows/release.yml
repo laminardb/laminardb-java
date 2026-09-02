@@ -18,7 +18,7 @@ jobs:
       - name: Version parity and core-pin gate
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          CARGO_V=$(grep -m1 '^version' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          CARGO_V=$(grep -m1 '^version' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
           POM_V=$(mvn -q help:evaluate -Dexpression=project.version -DforceStdout)
           test "$TAG" = "v$CARGO_V" || { echo "tag $TAG != Cargo $CARGO_V"; exit 1; }
           test "$TAG" = "v$POM_V" || { echo "tag $TAG != pom $POM_V"; exit 1; }
