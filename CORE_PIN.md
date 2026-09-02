@@ -5,5 +5,5 @@ allowed pre-1.0 and recorded here.
 
 | Binding version | Pinned core tag | Notes |
 |---|---|---|
-| 0.30.0-alpha | `v0.30.0` | Phase 1 embedded MVP. |
+| 0.30.0-alpha | `v0.30.0` | Phases 1–2: embedded MVP + subscriptions/callbacks/async. |
 | 0.30.0 | `v0.30.0` | Phase 0 scaffold (never released). |

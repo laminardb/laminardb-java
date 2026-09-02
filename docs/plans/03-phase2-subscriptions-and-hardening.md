@@ -117,9 +117,14 @@ backoff.
 `benchmarks/` Maven module (JMH), run nightly and on release branches; results appended
 to `docs/benchmarks.md` with environment noted (machine, JDK, flags):
 
-1. Insert: zero-copy `VectorSchemaRoot` 65k-row batches — rows/s.
+1. Insert: map-insert throughput (conversion included); the zero-copy
+   `VectorSchemaRoot` variant joins with the release-native benchmark pass
+   (plan 04) where its copy cost is measured meaningfully.
 2. Query roundtrip: small aggregate query — µs/op after warmup.
-3. Poll subscription: end-to-end latency per 1k-row batch (p50/p99).
+3. Poll subscription: end-to-end latency per batch over a bounded query
+   stream (the named-stream poll path is exercised by the soak; a dedicated
+   named-stream JMH benchmark follows with the connector-matrix work — the
+   embedded emission surface for it is the passthrough shape only, per §7).
 4. Callback subscription: batch delivery overhead vs poll (the JNI crossing tax).
 5. Map-insert conversion: rows/s (conversion-layer cost isolated).
 6. Open/close cycle: ms/op (leak canary).

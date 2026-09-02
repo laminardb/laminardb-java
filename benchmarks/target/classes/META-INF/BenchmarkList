@@ -1,5 +1,0 @@
-JMH S 31 io.laminardb.bench.LaminarBench S 78 io.laminardb.bench.jmh_generated.LaminarBench_callbackDeliveryOverhead_jmhTest S 24 callbackDeliveryOverhead S 10 Throughput E A 1 1 1 E E E E E E E E E E E E E E E E E 
-JMH S 31 io.laminardb.bench.LaminarBench S 73 io.laminardb.bench.jmh_generated.LaminarBench_mapInsertThroughput_jmhTest S 19 mapInsertThroughput S 10 Throughput E A 1 1 1 E E E E E E E E E E E E E E E E E 
-JMH S 31 io.laminardb.bench.LaminarBench S 68 io.laminardb.bench.jmh_generated.LaminarBench_openCloseCycle_jmhTest S 14 openCloseCycle S 10 Throughput E A 1 1 1 E E E E E E E E E E E E E E E E E 
-JMH S 31 io.laminardb.bench.LaminarBench S 77 io.laminardb.bench.jmh_generated.LaminarBench_pollSubscriptionLatency_jmhTest S 23 pollSubscriptionLatency S 10 Throughput E A 1 1 1 E E E E E E E E E E E E E E E E E 
-JMH S 31 io.laminardb.bench.LaminarBench S 68 io.laminardb.bench.jmh_generated.LaminarBench_queryRoundtrip_jmhTest S 14 queryRoundtrip S 10 Throughput E A 1 1 1 E E E E E E E E E E E E E E E E E 

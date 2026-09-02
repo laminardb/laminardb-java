@@ -20,7 +20,6 @@ import org.apache.arrow.vector.TimeStampNanoVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
@@ -233,10 +232,7 @@ public final class RowConverter {
             return Instant.ofEpochSecond(
                     Math.floorDiv(v.get(row), 1_000_000_000L), Math.floorMod(v.get(row), 1_000_000_000L));
         }
-        if (vector.getField().getType() instanceof ArrowType.Timestamp) {
-            // Future/other units fall back to arrow-java's own materialization.
-            return vector.getObject(row);
-        }
+        // Future/other units fall back to arrow-java's own materialization.
         return vector.getObject(row);
     }
 

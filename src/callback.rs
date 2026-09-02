@@ -301,10 +301,9 @@ fn start_callback(
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
                 worker_loop(bridge, subscription_id, source, worker_stop, containers)
             }));
-            if result.is_err() {
-                // A panicked worker cannot deliver more batches; the exit
-                // signal below still releases any joiner.
-            }
+            // A panicked worker delivers no more batches; the exit signal
+            // below still releases any joiner.
+            let _ = result;
             ACTIVE.fetch_sub(1, Ordering::Relaxed);
             let (lock, cvar) = &*worker_exit;
             let mut done = lock.lock().unwrap();

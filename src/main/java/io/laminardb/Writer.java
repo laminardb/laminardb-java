@@ -98,9 +98,12 @@ public final class Writer implements AutoCloseable {
     /**
      * Converts row maps to an Arrow batch against the source's schema and
      * writes it. Value rules: {@code Integer/Long → Int32/Int64}, {@code
-     * Double → Float64}, {@code String → Utf8}, {@code Instant} or epoch-ms
-     * {@code Long → Timestamp}; nulls honored for nullable fields; anything
-     * else throws {@code LaminarIngestionException} 302 naming the field.
+     * Double → Float64}, {@code String → Utf8}, {@code Instant → Timestamp}
+     * (converted to the column's unit); a raw {@code Long} for a Timestamp
+     * column is interpreted in the column's own unit (µs for SQL TIMESTAMP
+     * at this pin — not epoch millis; use {@link Instant} for clarity);
+     * nulls honored for nullable fields; anything else throws {@code
+     * LaminarIngestionException} 302 naming the field.
      */
     public void write(List<Map<String, ?>> rows) {
         Objects.requireNonNull(rows, "rows");

@@ -5,7 +5,7 @@
 - Spike B (callback delivery, rapid single-row writes): ~544 µs/row
   write-side; broadcast lag-drop observed under consumer-slower-than-producer
   stress (machine-dependent; e.g. 468/500 and 181/500 on two runs) — batched
-  production is the contract, the ratio is recorded, never gated.')
+  production is the contract, the ratio is recorded, never gated.
 
 - The JMH module (`benchmarks/`, `just bench`) carries the plan 03 §5 suite:
   insert throughput, query roundtrip, poll- and callback-subscription

@@ -38,7 +38,7 @@ public class LaminarBench {
     @Setup(Level.Trial)
     public void open() {
         conn = LaminarDB.open();
-        conn.execute("CREATE TABLE bench (id BIGINT PRIMARY KEY, label VARCHAR)");
+        conn.execute("CREATE SOURCE bench (id BIGINT, label VARCHAR)");
         conn.execute("CREATE SOURCE bench_source (id BIGINT, label VARCHAR)");
         conn.execute("CREATE STREAM bench_stream AS SELECT id, label FROM bench_source");
         conn.start();
@@ -116,10 +116,12 @@ public class LaminarBench {
         }
     }
 
+    private long tmpSeq;
+
     @Benchmark
     public long openCloseCycle() {
         try (LaminarConnection fresh = LaminarDB.open()) {
-            fresh.execute("CREATE TABLE tmp (a INT)");
+            fresh.execute("CREATE TABLE tmp" + (tmpSeq++) + " (a INT PRIMARY KEY)");
             return 1;
         }
     }
