@@ -3,7 +3,6 @@ package io.laminardb;
 import io.laminardb.internal.Native;
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.StringJoiner;
 
 /**
  * Connection configuration, backed by a native config handle so the Java
@@ -101,12 +100,5 @@ public final class LaminarConfig implements AutoCloseable {
         public LaminarConfig build() {
             return config;
         }
-    }
-
-    @Override
-    public String toString() {
-        return new StringJoiner(", ", "LaminarConfig[", "]")
-                .add("handle=" + handle)
-                .toString();
     }
 }

@@ -42,14 +42,14 @@ pom = pom.replace('</plugins>',
 open('pom.xml', 'w').write(pom)
 PY
 
-# The quickstart test is the repo's own QuickstartIT, exercising exactly what
+# The quickstart test is the repo's own QuickstartTest, exercising exactly what
 # the README promises.
 rm -rf src/main/java src/test/java
 mkdir -p src/test/java
 sed -e 's/^package io.laminardb;/package quickstart;/' \
     -e 's/^import static org.assertj.core.api.Assertions.assertThat;/import static org.assertj.core.api.Assertions.assertThat;\nimport io.laminardb.LaminarConnection;\nimport io.laminardb.LaminarDB;\nimport io.laminardb.QueryResult;\nimport io.laminardb.Writer;\nimport io.laminardb.ExecuteResult;/' \
-    "$REPO_DIR/src/test/java/io/laminardb/QuickstartIT.java" \
-    > src/test/java/QuickstartIT.java
+    "$REPO_DIR/src/test/java/io/laminardb/QuickstartTest.java" \
+    > src/test/java/QuickstartTest.java
 
 # The surefire fork must see the arrow add-opens, same as in-repo builds.
 mvn -q -DargLine="--add-opens java.base/java.nio=ALL-UNNAMED" test

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
  * stateful-join walkthrough verbatim, keeping the docs honest — a broken
  * example in docs is a broken test in CI.
  */
-class QuickstartIT {
+class QuickstartTest {
 
     @AfterAll
     static void allocatorDrained() {

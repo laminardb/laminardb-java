@@ -84,6 +84,22 @@ class ConfigTest {
     }
 
     @Test
+    void builderMapsObjectStoreOptions() {
+        try (LaminarConfig config = LaminarConfig.builder()
+                .objectStoreUrl("s3://bucket/prefix")
+                .objectStoreOption("key", "value")
+                .objectStoreOption("removed", null)
+                .build()) {
+            try (LaminarConnection conn = LaminarDB.open(":memory:", config)) {
+                // The object-store config does not bind the embedded engine
+                // to anything network-visible; opening proves the values
+                // crossed the builder without rejection.
+                assertThat(conn.isClosed()).isFalse();
+            }
+        }
+    }
+
+    @Test
     void builderMapsBufferAndEmitFlags() {
         try (LaminarConfig config = LaminarConfig.builder()
                 .bufferSize(1024)
